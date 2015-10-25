@@ -60,6 +60,11 @@ class ProcessTable {
 		int runningProcessCount;
 };
 
+class IptEntry: public TranslationEntry {
+	public:
+		AddrSpace* spaceOwner;
+};
+
 extern Thread *currentThread;			// the thread holding the CPU
 extern Thread *threadToBeDestroyed;  		// the thread that just finished
 extern Scheduler *scheduler;			// the ready list
@@ -74,6 +79,7 @@ extern BitMap* bitmap;
 extern ProcessTable* processTable;
 extern int threadArgs[500];
 extern int tlbCounter;
+extern IptEntry* ipt[NumPhysPages];
 
 #ifdef USER_PROGRAM
 #include "machine.h"

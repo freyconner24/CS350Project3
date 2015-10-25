@@ -30,6 +30,7 @@ BitMap* bitmap;
 ProcessTable* processTable;
 int threadArgs[500];
 int tlbCounter;
+IptEntry* ipt[NumPhysPages];
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -149,6 +150,7 @@ Initialize(int argc, char **argv)
     bitmap = new BitMap(NumPhysPages);
     processTable = new ProcessTable();
     tlbCounter = -1;
+    ipt = new IptEntry[NumPhysPages];
     }
 
     DebugInit(debugArgs);			// initialize DEBUG messages

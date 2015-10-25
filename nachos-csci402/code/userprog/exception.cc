@@ -357,11 +357,13 @@ bool isLastProcess() {
 
 void handlePageFaultException(int virtualAddress) {
     ++tlbCounter;
-    machine->tlb[tlbCounter % 4] = currentThread->space->pageTable[virtualAddress];
+    // machine->tlb[tlbCounter % 4] = currentThread->space->pageTable[virtualAddress];
+    machine->tlb[tlbCounter % 4] = ipt[virtualAddress];
+    //TODO: might have to flip the dirty bit if something changes
 }
 
 void invalidateTLB(int virtualAddress) {
-    set all valid bits false
+    // set all valid bits false
     // turn off interrupts
     for(int i = 0; i < 4; ++i) {
         machine->tlb[tlbCounter % 4].valid = false; // it is 0 → 3 because TLB is size 4

@@ -176,7 +176,13 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on
 					// a separate page, we could set its
 					// pages to be read-only
-
+        ipt[i].virtualPage = i;   // for now, virtual page # = phys page #
+        ipt[i].physicalPage = tempIndex;
+        ipt[i].valid = TRUE;
+        ipt[i].use = FALSE;
+        ipt[i].dirty = FALSE;
+        ipt[i].readOnly = FALSE;
+        ipt.spaceOwner = this; //extra piece for ipt
 
 //          processTable->processEntries[processId]->stackLocations[currentThread->id] = StackTopForMain; //Assigns arbitrarily to main for every exec
 
@@ -305,11 +311,11 @@ int AddrSpace::NewPageTable(){
     }
     int tempIndex = 0;
     for (unsigned int i = numPages; i < numPages+8; i++) {
-      tempIndex = bitmap->Find();
-      if (tempIndex == -1){
-        DEBUG('g', "PAGETABLE TOO BIG");
-        interrupt->Halt();
-      }
+        tempIndex = bitmap->Find();
+        if (tempIndex == -1){
+            DEBUG('g', "PAGETABLE TOO BIG");
+            interrupt->Halt();
+        }
     	newTable[i].virtualPage = i;	// for now, virtual page # = phys page #
     	newTable[i].physicalPage = tempIndex;
     	newTable[i].valid = TRUE;
@@ -318,7 +324,16 @@ int AddrSpace::NewPageTable(){
     	newTable[i].readOnly = FALSE;  // if the code segment was entirely on
     					// a separate page, we could set its
     					// pages to be read-only
+        ipt[i].virtualPage = i;    // for now, virtual page # = phys page #
+        ipt[i].physicalPage = tempIndex;
+        ipt[i].valid = TRUE;
+        ipt[i].use = FALSE;
+        ipt[i].dirty = FALSE;
+        ipt[i].readOnly = FALSE;
+        ipt[i].spaceOwner = this;
     }
+
+
     delete[] pageTable;
     pageTable = newTable;
     numPages = numPages+8;
