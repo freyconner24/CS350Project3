@@ -22,6 +22,7 @@
 #define MAX_LOCK_COUNT 50
 #define MAX_COND_COUNT 50
 #define ADDRESS_SPACE_COUNT 500
+#define TLB_SIZE 4
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -72,6 +73,7 @@ extern int totalThreadCount;
 extern BitMap* bitmap;
 extern ProcessTable* processTable;
 extern int threadArgs[500];
+extern int tlbCounter;
 
 #ifdef USER_PROGRAM
 #include "machine.h"

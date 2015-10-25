@@ -29,6 +29,7 @@ int totalThreadCount;
 BitMap* bitmap;
 ProcessTable* processTable;
 int threadArgs[500];
+int tlbCounter;
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -147,6 +148,7 @@ Initialize(int argc, char **argv)
     totalThreadCount = 0;
     bitmap = new BitMap(NumPhysPages);
     processTable = new ProcessTable();
+    tlbCounter = -1;
     }
 
     DebugInit(debugArgs);			// initialize DEBUG messages

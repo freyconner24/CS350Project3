@@ -355,6 +355,38 @@ bool isLastProcess() {
     }
 }
 
+void handlePageFaultException(int virtualAddress) {
+    ++tlbCounter;
+    machine->tlb[tlbCounter % 4] = currentThread->space->pageTable[virtualAddress];
+}
+
+void invalidateTLB(int virtualAddress) {
+    set all valid bits false
+    // turn off interrupts
+    for(int i = 0; i < 4; ++i) {
+        machine->tlb[tlbCounter % 4].valid = false; // it is 0 → 3 because TLB is size 4
+    }
+    // enable interrupts
+
+    //TODO:
+    //Be sure to invalidate the contents of the TLB on a context switch. 
+    //If you want to get fancy, you can do a check and only invalidate 
+    //the TLB if the incoming thread is from a different process than the outgoing thread. 
+    //If they are from the same process, they have the same address space.
+
+    //TODO:
+    //Any time that the TLB is invalidated, the dirty bits must be checked. 
+    //If something has been changed, this change must be propagated back to the page table/IPT. 
+    //Basically, this means that the dirty bit must be set. 
+    //The data has already been changed in memory, 
+    //but if the page table/ITP don't know about this, 
+    //that page in memory could potentially be overwritten.
+
+
+
+
+}
+
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
@@ -363,7 +395,7 @@ void ExceptionHandler(ExceptionType which) {
     if ( which == SyscallException ) {
     	switch (type) {
         default:
-          DEBUG('a', "Unknown syscall - shutting down.\n");
+            DEBUG('a', "Unknown syscall - shutting down.\n");
         case SC_Halt:
             DEBUG('a', "Shutdown, initiated by user program.\n      ");
             //cout << "Halt is called by: " << currentThread->getName() << ", number of threads remaining in space: " << currentThread->space->threadCount <<  endl;
@@ -443,19 +475,20 @@ void ExceptionHandler(ExceptionType which) {
             OpenFile *filePointer = fileSystem->Open(nameOfProcess);
             delete [] nameOfProcess;
             if (filePointer){ // check if pointer is not null
-              AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
-              Thread* newThread = new Thread("ExecThread");
-              newThread->space = as; //Allocate the space created to this thread's space
-              processEntry = new ProcessEntry();
-              processEntry->space = as;
-              processEntry->spaceId = processCount;
-              processTable->processEntries[processCount] = processEntry;
-              processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id] = as->StackTopForMain;
-              //cout << "Start stack location for Exec_thread: " << processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id]<< endl;
+                AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
+                Thread* newThread = new Thread("ExecThread");
+                newThread->space = as; //Allocate the space created to this thread's space
+                processEntry = new ProcessEntry();
+                processEntry->space = as;
+                processEntry->spaceId = processCount;
+                processTable->processEntries[processCount] = processEntry;
+                processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id] = as->StackTopForMain;
+                //cout << "Start stack location for Exec_thread: " << processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id]<< endl;
 
-              rv = newThread->space->spaceId;
-              newThread->Fork((VoidFunctionPtr)exec_thread, 0);
-              kernelLock->Release();
+                invalidateTLB(virtualAddress);
+                rv = newThread->space->spaceId;
+                newThread->Fork((VoidFunctionPtr)exec_thread, 0);
+                kernelLock->Release();
             }else{
                 printf("%s", "Couldn't open file\n");
                 kernelLock->Release();
@@ -549,14 +582,18 @@ void ExceptionHandler(ExceptionType which) {
             PrintNl_sys();
             break;
         }
-	// Put in the return value and increment the PC
-	machine->WriteRegister(2,rv);
-	machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
-	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
-	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
-	return;
+        
+        // Put in the return value and increment the PC
+    	machine->WriteRegister(2,rv);
+    	machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
+    	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
+    	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
+    	return;
+    } else if(which == PageFaultException) {
+        handlePageFaultException(machine->ReadRegister(4));
+        return;
     } else {
-cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<< " in " << currentThread->getName() << endl;
-      interrupt->Halt();
+        cout << "Unexpected user mode exception - which:" << which << "|| type:" << type << " in " << currentThread->getName() << endl;
+        interrupt->Halt();
     }
 }
