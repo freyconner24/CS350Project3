@@ -373,7 +373,7 @@ int handleMemoryFull() {
 }
 
 int handleIPTMiss( int neededVPN ) {
-    int ppn = bitMap->Find();  //Find a physical page of memory
+    int ppn = bitmap->Find();  //Find a physical page of memory
     if(ppn == -1) {
         ppn = handleMemoryFull();
     }
@@ -385,7 +385,7 @@ int handleIPTMiss( int neededVPN ) {
 void handlePageFaultException(int virtualAddress) {
     tlbLock->Acquire();
     ++tlbCounter;
-    int vpn = virtualAddress / PageSi;
+    int vpn = virtualAddress / PageSize;
     // machine->tlb[tlbCounter % 4] = currentThread->space->pageTable[virtualAddress];
     int ppn = -1;
     // we are searching for the index of the IPT which matches the VPN so we can put into TLB
