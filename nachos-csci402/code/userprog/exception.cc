@@ -364,6 +364,7 @@ int handleMemoryFull() {
     bool isRand = true; //argv[0] == "RAND" from command line
     if(isRand) {
         ppn = rand() % NumPhysPages;
+        // TODO: need to do something with this
     } else { // FIFO
 
     }
@@ -390,8 +391,11 @@ void handlePageFaultException(int virtualAddress) {
     // we are searching for the index of the IPT which matches the VPN so we can put into TLB
     for(int i = 0; i < NumPhysPages; ++i) {
         //Found the physical page we need
-        // we don't know what the physical page numver
-        if(ipt[i].valid && vpn == ipt[i].virtualPage && ipt[i].spaceOwner == currentThread->space) {
+        // we don't know what the physical page number is
+        if(ipt[i].valid && 
+            vpn == ipt[i].virtualPage && 
+            ipt[i].spaceOwner == currentThread->space) {
+            
             ppn = i;
             break;
         }
