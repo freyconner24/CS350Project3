@@ -22,6 +22,7 @@ Timer *timer;				// the hardware timer device,
 struct UserLock userLocks[MAX_LOCK_COUNT];
 struct UserCond userConds[MAX_COND_COUNT];
 Lock* kernelLock;
+Lock* tlbLock;
 int lockCount;
 int condCount;
 int processCount;
@@ -30,7 +31,7 @@ BitMap* bitmap;
 ProcessTable* processTable;
 int threadArgs[500];
 int tlbCounter;
-IptEntry* ipt[NumPhysPages];
+IptEntry ipt[NumPhysPages];
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -143,6 +144,7 @@ Initialize(int argc, char **argv)
     userLocks[MAX_LOCK_COUNT];
     userConds[MAX_COND_COUNT];
     kernelLock = new Lock("KernelLock");
+    tlbLock = new Lock("tlbLock");
     lockCount = 0;
     condCount = 0;
     processCount = 0;
@@ -150,8 +152,6 @@ Initialize(int argc, char **argv)
     bitmap = new BitMap(NumPhysPages);
     processTable = new ProcessTable();
     tlbCounter = -1;
-    ipt = new IptEntry[NumPhysPages];
-    }
 
     DebugInit(debugArgs);			// initialize DEBUG messages
     stats = new Statistics();			// collect statistics

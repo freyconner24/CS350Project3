@@ -182,7 +182,7 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
         ipt[i].use = FALSE;
         ipt[i].dirty = FALSE;
         ipt[i].readOnly = FALSE;
-        ipt.spaceOwner = this; //extra piece for ipt
+        ipt[i].spaceOwner = this; //extra piece for ipt
 
 //          processTable->processEntries[processId]->stackLocations[currentThread->id] = StackTopForMain; //Assigns arbitrarily to main for every exec
 
@@ -279,7 +279,11 @@ AddrSpace::InitRegisters()
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState()
-{}
+{
+    for(int i = 0; i < 4; ++i) {
+        machine->tlb[i].valid = false; // it is 0 → 3 because TLB is size 4
+    }
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -300,14 +304,22 @@ int AddrSpace::NewPageTable(){
     cout << "Creating new pagetable for currentThread: " << currentThread->getName() << endl;
     TranslationEntry* newTable = new TranslationEntry [numPages+8];
     for (unsigned int i = 0; i < numPages; i++) {
-    	newTable[i].virtualPage = pageTable[i].virtualPage;	// for now, virtual page # = phys page #
-    	newTable[i].physicalPage = pageTable[i].physicalPage;
-    	newTable[i].valid = pageTable[i].valid;
-    	newTable[i].use = pageTable[i].use;
-    	newTable[i].dirty = pageTable[i].dirty;
-    	newTable[i].readOnly = pageTable[i].readOnly;  // if the code segment was entirely on
+    	newTable[i].virtualPage    = pageTable[i].virtualPage;	// for now, virtual page # = phys page #
+    	newTable[i].physicalPage   = pageTable[i].physicalPage;
+    	newTable[i].valid          = pageTable[i].valid;
+    	newTable[i].use            = pageTable[i].use;
+    	newTable[i].dirty          = pageTable[i].dirty;
+    	newTable[i].readOnly       = pageTable[i].readOnly;  // if the code segment was entirely on
     					// a separate page, we could set its
     					// pages to be read-only
+
+        ipt[i].virtualPage    = pageTable[i].virtualPage; // for now, virtual page # = phys page #
+        ipt[i].physicalPage   = pageTable[i].physicalPage;
+        ipt[i].valid          = pageTable[i].valid;
+        ipt[i].use            = pageTable[i].use;
+        ipt[i].dirty          = pageTable[i].dirty;
+        ipt[i].readOnly       = pageTable[i].readOnly;
+        ipt[i].spaceOwner     = this;
     }
     int tempIndex = 0;
     for (unsigned int i = numPages; i < numPages+8; i++) {
@@ -332,7 +344,6 @@ int AddrSpace::NewPageTable(){
         ipt[i].readOnly = FALSE;
         ipt[i].spaceOwner = this;
     }
-
 
     delete[] pageTable;
     pageTable = newTable;

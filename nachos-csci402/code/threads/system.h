@@ -73,13 +73,14 @@ extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 
 extern Lock* kernelLock;
+extern Lock* tlbLock;
 extern int processCount;
 extern int totalThreadCount;
 extern BitMap* bitmap;
 extern ProcessTable* processTable;
 extern int threadArgs[500];
 extern int tlbCounter;
-extern IptEntry* ipt[NumPhysPages];
+extern IptEntry ipt[NumPhysPages];
 
 #ifdef USER_PROGRAM
 #include "machine.h"

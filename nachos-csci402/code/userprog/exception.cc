@@ -355,19 +355,68 @@ bool isLastProcess() {
     }
 }
 
+// when we get to step four
+
+int handleMemoryFull() {
+    //evict a page in IPT
+    //bitmap->Find() to get the next ppn
+    int ppn;
+    bool isRand = true; //argv[0] == "RAND" from command line
+    if(isRand) {
+        ppn = rand() % NumPhysPages;
+    } else { // FIFO
+
+    }
+
+    return ppn;
+}
+
+int handleIPTMiss( int neededVPN ) {
+    int ppn = bitMap->Find();  //Find a physical page of memory
+    if(ppn == -1) {
+        ppn = handleMemoryFull();
+    }
+    //read values from page table as to location of needed virtual page
+    //copy page from disk to memory, if needed
+    return ppn;
+}
+
 void handlePageFaultException(int virtualAddress) {
+    tlbLock->Acquire();
     ++tlbCounter;
+    int vpn = virtualAddress / PageSi;
     // machine->tlb[tlbCounter % 4] = currentThread->space->pageTable[virtualAddress];
-    machine->tlb[tlbCounter % 4] = ipt[virtualAddress];
+    int ppn = -1;
+    // we are searching for the index of the IPT which matches the VPN so we can put into TLB
+    for(int i = 0; i < NumPhysPages; ++i) {
+        //Found the physical page we need
+        // we don't know what the physical page numver
+        if(ipt[i].valid && vpn == ipt[i].virtualPage && ipt[i].spaceOwner == currentThread->space) {
+            ppn = i;
+            break;
+        }
+    }
+
+    if (ppn = -1) {
+        ppn = handleIPTMiss(vpn);
+    } 
+
+    int tlbIndex = tlbCounter % 4;
+    machine->tlb[tlbIndex].virtualPage = ipt[ppn].virtualPage;   // for now, virtual page # = phys page #
+    machine->tlb[tlbIndex].physicalPage = ipt[ppn].physicalPage;
+    machine->tlb[tlbIndex].valid = ipt[ppn].valid;
+    machine->tlb[tlbIndex].use = ipt[ppn].use;
+    machine->tlb[tlbIndex].dirty = ipt[ppn].dirty;
+    machine->tlb[tlbIndex].readOnly = ipt[ppn].readOnly;
     //TODO: might have to flip the dirty bit if something changes
+    tlbLock->Release();
 }
 
 void invalidateTLB(int virtualAddress) {
     // set all valid bits false
     // turn off interrupts
-    for(int i = 0; i < 4; ++i) {
-        machine->tlb[tlbCounter % 4].valid = false; // it is 0 → 3 because TLB is size 4
-    }
+
+
     // enable interrupts
 
     //TODO:
@@ -383,11 +432,9 @@ void invalidateTLB(int virtualAddress) {
     //The data has already been changed in memory, 
     //but if the page table/ITP don't know about this, 
     //that page in memory could potentially be overwritten.
-
-
-
-
 }
+
+
 
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
@@ -592,7 +639,7 @@ void ExceptionHandler(ExceptionType which) {
     	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
     	return;
     } else if(which == PageFaultException) {
-        handlePageFaultException(machine->ReadRegister(4));
+        handlePageFaultException(machine->ReadRegister(39));
         return;
     } else {
         cout << "Unexpected user mode exception - which:" << which << "|| type:" << type << " in " << currentThread->getName() << endl;
