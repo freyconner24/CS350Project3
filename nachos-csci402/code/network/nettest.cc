@@ -80,3 +80,111 @@ MailTest(int farAddr)
     // Then we're done!
     interrupt->Halt();
 }
+
+void parseMessage(char buffer[]) {
+
+}
+
+// [Size1|Size2|SysCode1|SysCode2|ClientToServerBool|ClientId|results|lockId1|lockId2|lockId3|cvId1|cvId2|cvId3]
+
+// int CreateLock_sys(int vaddr, int size, int appendNum); LC
+// void Acquire_sys(int lockIndex); LA
+// void Release_sys(int lockIndex); LR
+// void DestroyLock_sys(int destroyValue); LD
+
+// int CreateMonitor_sys(int vaddr, int size, int appendNum); MC
+// void Acquire_sys(int lockIndex); MA
+// void Release_sys(int lockIndex); MR
+// void DestroyLock_sys(int destroyValue); MD
+
+// int CreateCondition_sys(int vaddr, int size, int appendNum); CC
+// void Wait_sys(int lockIndex, int conditionIndex); CW
+// void Signal_sys(int lockIndex, int conditionIndex); CS
+// void Broadcast_sys(int lockIndex, int conditionIndex); CB
+// void DestroyCondition_sys(int destroyValue); CD
+
+void Server(int farAddr) {
+    int SysCode1 = 2, SysCode2 = 3;
+
+    PacketHeader outPktHdr, inPktHdr; // Pkt is hardware level // just need to know the machine->Id at command line
+    MailHeader outMailHdr, inMailHdr; // Mail 
+    char *data = "Hello there!";
+    char *ack = "Got it!";
+    char buffer[MaxMailSize];
+
+    outPktHdr.to = farAddr;     
+    outMailHdr.to = 0; //mailbox 0
+    outMailHdr.from = 0; //server 0
+    outMailHdr.length = strlen(data) + 1;
+
+    // -m 0
+    while(true) {
+        //Recieve the message
+        postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+        printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+        fflush(stdout);
+        //Parse the message
+        switch(buffer[SysCode1]) {
+            case 'L':
+                switch(buffer[SysCode2]) {
+                    case 'C':
+                        CreateLock_sys(int vaddr, int size, int appendNum);
+                    break;
+                    case 'A':
+                        lockId1|lockId2|lockId3
+                        Acquire_sys(int lockIndex);
+                    break;
+                    case 'R':
+                        Release_sys(int lockIndex);
+                    break;
+                    case 'D':
+                        DestroyLock_sys(int destroyValue);
+                    break;
+                }
+            break;
+            case 'M':
+                switch(buffer[SysCode2]) {
+                    case 'C':
+                        CreateMonitor_sys(int vaddr, int size, int appendNum);
+                    break;
+                    case 'A':
+                        Acquire_sys(int lockIndex);
+                    break;
+                    case 'R':
+                        Release_sys(int lockIndex); 
+                    break;
+                    case 'D':
+                        DestroyLock_sys(int destroyValue);
+                    break;
+                }
+            break;
+            case 'C':
+                switch(buffer[SysCode2]) {
+                    case 'C':
+                        CreateCondition_sys(int vaddr, int size, int appendNum);
+                    break;
+                    case 'W':
+                        Wait_sys(int lockIndex, int conditionIndex);
+                    break;
+                    case 'S':
+                        Signal_sys(int lockIndex, int conditionIndex);
+                    break;
+                    case 'B':
+                        Broadcast_sys(int lockIndex, int conditionIndex);
+                    break;
+                    case 'D':
+                        DestroyCondition_sys(int destroyValue);
+                    break;
+                }
+            break;
+        }
+
+        //Process the message
+        //Send a reply (maybe)
+    }
+}
+
+
+
+
+
