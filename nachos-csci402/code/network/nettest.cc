@@ -81,11 +81,66 @@ MailTest(int farAddr)
     interrupt->Halt();
 }
 
-void parseMessage(char buffer[]) {
+// ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
+
+int CreateLock_server(char* name, int appendNum) {
 
 }
 
-// [Size1|Size2|SysCode1|SysCode2|ClientToServerBool|ClientId|results|lockId1|lockId2|lockId3|cvId1|cvId2|cvId3]
+void Acquire_server(int lockIndex) {
+    validateLockIndex(lockIndex);
+}
+
+void Release_server(int lockIndex) {
+    validateLockIndex(lockIndex);
+}
+
+void DestroyLock_server(int lockIndex) {
+    validateLockIndex(lockIndex);
+}
+
+// ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
+
+int CreateMonitor_server(char* name, int appendNum) {
+
+}
+
+void GetMonitor_server(int monitorIndex) {
+    validateMonitorIndex(monitorIndex);
+}
+
+void SetMonitor_server(int monitorIndex) {
+    validateMonitorIndex(monitorIndex);
+}
+
+void DestroyMonitor_server(int monitorIndex) {
+    validateMonitorIndex(monitorIndex);
+}
+
+// ++++++++++++++++++++++++++++ CVs ++++++++++++++++++++++++++++
+
+int CreateCondition_server(char* name, int appendNum) {
+
+}
+
+void Wait_server(int lockIndex, int conditionIndex) {
+    validateLockIndex(lockIndex);
+    validateConditionIndex(conditionIndex);
+}
+
+void Signal_server(int lockIndex, int conditionIndex) {
+    validateLockIndex(lockIndex);
+    validateConditionIndex(conditionIndex);
+}
+
+void Broadcast_server(int lockIndex, int conditionIndex) {
+    validateLockIndex(lockIndex);
+    validateConditionIndex(conditionIndex);
+}
+
+void DestroyCondition_server(int conditionIndex) {
+    validateConditionIndex(conditionIndex);
+}
 
 // int CreateLock_sys(int vaddr, int size, int appendNum); LC
 // void Acquire_sys(int lockIndex); LA
@@ -93,9 +148,9 @@ void parseMessage(char buffer[]) {
 // void DestroyLock_sys(int destroyValue); LD
 
 // int CreateMonitor_sys(int vaddr, int size, int appendNum); MC
-// void Acquire_sys(int lockIndex); MA
-// void Release_sys(int lockIndex); MR
-// void DestroyLock_sys(int destroyValue); MD
+// void GetMonitor_sys(int lockIndex); MG
+// void SetMonitor_sys(int lockIndex); MS
+// void DestroyMonitor_sys(int destroyValue); MD
 
 // int CreateCondition_sys(int vaddr, int size, int appendNum); CC
 // void Wait_sys(int lockIndex, int conditionIndex); CW
@@ -103,20 +158,46 @@ void parseMessage(char buffer[]) {
 // void Broadcast_sys(int lockIndex, int conditionIndex); CB
 // void DestroyCondition_sys(int destroyValue); CD
 
+void parseMessage(char* buffer) {
+
+}
+
+// [SysCode1|SysCode2|results|entityId1|entityId2|entityId3]
+
+// CreateLock:       "L C name"
+// Acquire:          "L A 32"
+// Release:          "L R 2"
+// DestroyLock:      "L D 21"
+
+// CreateMonitor:    "M C name"
+// GetMonitor:       "M G 32"
+// SetMonitor:       "M S 2"
+// DestroyMonitor:   "M D 21"
+
+// CreateCondition:  "C C name"
+// Wait:             "C W 32 2"
+// Signal:           "C S 2 46"
+// Broadcast:        "C B 21 36"
+// DestroyCondition: "C D 21"
+
 void Server(int farAddr) {
-    int SysCode1 = 2, SysCode2 = 3;
+    int sysCode1 = 0, sysCode2 = 1;
 
     PacketHeader outPktHdr, inPktHdr; // Pkt is hardware level // just need to know the machine->Id at command line
     MailHeader outMailHdr, inMailHdr; // Mail 
     char *data = "Hello there!";
     char *ack = "Got it!";
     char buffer[MaxMailSize];
+    stringstream ss;
 
-    outPktHdr.to = farAddr;     
-    outMailHdr.to = 0; //mailbox 0
-    outMailHdr.from = 0; //server 0
+    outPktHdr.to = farAddr; 
+    outPktHdr.to = inPktHdr.from;
+    outMailHdr.to = inMailHdr.from;
+    //outMailHdr.to = 0; //mailbox 0 TODO: might need
+    //outMailHdr.from = 0; //server 0 //ClientId is in Header From field
     outMailHdr.length = strlen(data) + 1;
 
+    // has to have a waitQueue of replies
     // -m 0
     while(true) {
         //Recieve the message
@@ -124,56 +205,71 @@ void Server(int farAddr) {
         printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
         fflush(stdout);
         //Parse the message
-        switch(buffer[SysCode1]) {
+        int entityId = -1;
+        int entityIndex1 = -1;
+        int entityIndex2 = -1;
+        ss << buffer;
+
+        ss >> sysCode1 >> sysCode2;
+        if(sysCode2 == 'C') {
+            ss >> name;
+        } else {
+            ss >> entityIndex1;
+        }
+
+        switch(sysCode1) {
             case 'L':
-                switch(buffer[SysCode2]) {
+                switch(buffer[sysCode2]) {
                     case 'C':
-                        CreateLock_sys(int vaddr, int size, int appendNum);
+                        entityId = CreateLock_server(name, serverLockCount);
                     break;
                     case 'A':
-                        lockId1|lockId2|lockId3
-                        Acquire_sys(int lockIndex);
+                        // only send reply when they can Acquire
+                        Acquire_server(entityIndex1);
                     break;
                     case 'R':
-                        Release_sys(int lockIndex);
+                        Release_server(entityIndex1);
                     break;
                     case 'D':
-                        DestroyLock_sys(int destroyValue);
+                        DestroyLock_server(entityIndex1);
                     break;
                 }
             break;
             case 'M':
-                switch(buffer[SysCode2]) {
+                switch(buffer[sysCode2]) {
                     case 'C':
-                        CreateMonitor_sys(int vaddr, int size, int appendNum);
+                        entityId = CreateMonitor_server(name, serverMonitorCount);
                     break;
-                    case 'A':
-                        Acquire_sys(int lockIndex);
+                    case 'G':
+                        GetMonitor_server(int entityIndex1);
                     break;
-                    case 'R':
-                        Release_sys(int lockIndex); 
+                    case 'S':
+                        SetMonitor_server(int entityIndex1); 
                     break;
                     case 'D':
-                        DestroyLock_sys(int destroyValue);
+                        DestroyMonitor_server(int entityIndex1);
                     break;
                 }
             break;
             case 'C':
-                switch(buffer[SysCode2]) {
+                switch(buffer[sysCode2]) {
                     case 'C':
-                        CreateCondition_sys(int vaddr, int size, int appendNum);
+                        entityId = CreateCondition_server(name, serverConditionCount);
                     break;
                     case 'W':
-                        Wait_sys(int lockIndex, int conditionIndex);
+                        ss >> entityIndex2;
+                        Wait_server(entityIndex1, entityIndex2); //lock then CV
                     break;
                     case 'S':
-                        Signal_sys(int lockIndex, int conditionIndex);
+                        ss >> entityIndex2;
+                        Signal_server(entityIndex1, entityIndex2); //lock then CV
                     break;
                     case 'B':
-                        Broadcast_sys(int lockIndex, int conditionIndex);
+                        ss >> entityIndex2;
+                        Broadcast_server(entityIndex1, entityIndex2); //lock then CV
                     break;
                     case 'D':
-                        DestroyCondition_sys(int destroyValue);
+                        DestroyCondition_server(entityIndex2);
                     break;
                 }
             break;
