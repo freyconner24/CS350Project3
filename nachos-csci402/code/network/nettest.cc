@@ -17,11 +17,11 @@
 // of liability and disclaimer of warranty provisions.
 
 #include "copyright.h"
-
 #include "system.h"
 #include "network.h"
 #include "post.h"
 #include "interrupt.h"
+#include <sstream>
 
 // Test out message delivery, by doing the following:
 //	1. send a message to the machine with ID "farAddr", at mail box #0
@@ -48,7 +48,7 @@ MailTest(int farAddr)
     outMailHdr.length = strlen(data) + 1;
 
     // Send the first message
-    bool success = postOffice->Send(outPktHdr, outMailHdr, data); 
+    bool success = postOffice->Send(outPktHdr, outMailHdr, data);
 
     if ( !success ) {
       printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
@@ -81,9 +81,47 @@ MailTest(int farAddr)
     interrupt->Halt();
 }
 
+// ++++++++++++++++++++++++++++ Declarations ++++++++++++++++++++++++++++
+
+struct ServerLock {
+    bool deleteFlag;
+    Lock* serverLock;
+    bool isDeleted;
+};
+
+struct ServerMon {
+    bool deleteFlag;
+    Monitor* serverMon;
+    bool isDeleted;
+};
+
+struct ServerCond {
+    bool deleteFlag;
+    Condition* serverCond;
+    bool isDeleted;
+};
+
+struct ServerLock serverLocks[MAX_LOCK_COUNT];
+struct ServerMon serverMons[MAX_COND_COUNT];
+struct ServerCond serverConds[MAX_MON_COUNT];
+
+// ++++++++++++++++++++++++++++ Validation ++++++++++++++++++++++++++++
+
+bool validateLockIndex(int lockIndex) {
+
+}
+
+bool validateMonitorIndex(int monitorIndex) {
+
+}
+
+bool validateConditionIndex(int conditionIndex) {
+
+}
+
 // ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
 
-int CreateLock_server(char* name, int appendNum) {
+int CreateLock_server(string name, int appendNum) {
 
 }
 
@@ -101,7 +139,7 @@ void DestroyLock_server(int lockIndex) {
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
 
-int CreateMonitor_server(char* name, int appendNum) {
+int CreateMonitor_server(string name, int appendNum) {
 
 }
 
@@ -119,7 +157,7 @@ void DestroyMonitor_server(int monitorIndex) {
 
 // ++++++++++++++++++++++++++++ CVs ++++++++++++++++++++++++++++
 
-int CreateCondition_server(char* name, int appendNum) {
+int CreateCondition_server(string name, int appendNum) {
 
 }
 
