@@ -21,6 +21,7 @@
 #include "network.h"
 #include "post.h"
 #include "interrupt.h"
+#include "list.h"
 #include <sstream>
 
 // Test out message delivery, by doing the following:
@@ -85,25 +86,43 @@ MailTest(int farAddr)
 
 struct ServerLock {
     bool deleteFlag;
-    Lock* serverLock;
     bool isDeleted;
+
+    enum LockStatus {FREE, BUSY};
+    LockStatus lockStatus;
+    char* name;
+    List* waitQueue;
+    int machineId;
+    int clientId;
+
 };
 
 struct ServerMon {
     bool deleteFlag;
-    Monitor* serverMon;
     bool isDeleted;
+
+    int machineId;
+    int clientId;
 };
 
 struct ServerCond {
     bool deleteFlag;
-    Condition* serverCond;
     bool isDeleted;
+
+    char* name;
+    struct ServerLock waitingLock;
+    List *waitQueue;
+    int machineId;
+    int clientId;
 };
 
 struct ServerLock serverLocks[MAX_LOCK_COUNT];
 struct ServerMon serverMons[MAX_COND_COUNT];
 struct ServerCond serverConds[MAX_MON_COUNT];
+
+int serverLockCount = 0;
+int serverMonCount = 0;
+int serverCondCount = 0;
 
 // ++++++++++++++++++++++++++++ Validation ++++++++++++++++++++++++++++
 
@@ -122,19 +141,67 @@ bool validateConditionIndex(int conditionIndex) {
 // ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
 
 int CreateLock_server(string name, int appendNum) {
-
+    currentThread->space->userLocks[currentThread->space->lockCount].userLock = new Lock(buffer); // instantiate new lock
+    currentThread->space->userLocks[currentThread->space->lockCount].deleteFlag = FALSE; // indicate the lock is not to be deleted
+    currentThread->space->userLocks[currentThread->space->lockCount].isDeleted = FALSE; // indicate the lock is not in use
+    int currentLockIndex = currentThread->space->lockCount; // save the currentlockcount to be returned later
+    ++(currentThread->space->lockCount); // increase lock count
+    DEBUG('a', "Lock has number %d and name %s\n", currentLockIndex, buffer);
+    DEBUG('l',"    Lock::Lock number: %d || name: %s created by %s\n", currentLockIndex, currentThread->space->userLocks[currentLockIndex].userLock->getName(), currentThread->getName());
+    currentThread->space->locksLock->Release(); //release kernel lock
+    return currentLockIndex;
 }
 
 void Acquire_server(int lockIndex) {
-    validateLockIndex(lockIndex);
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+
+    if(currentThread == lockOwner) //current thread is lock owner
+    {
+        return;
+    }
+
+    if(serverLocks[lockIndex].lockStatus == FREE) //lock is available
+    {
+        //I can have the lock
+        serverLocks[lockIndex].lockStatus = BUSY; //make state BUSY
+        lockOwner = currentThread; //make myself the owner
+    }
+    else //lock is busy
+    {
+        serverLocks[lockIndex].waitQueue->Append(currentThread); //Put current thread on the lock’s waitQueue
+        currentThread->Sleep(); // this Receive
+    }
 }
 
 void Release_server(int lockIndex) {
-    validateLockIndex(lockIndex);
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+
+    if(currentThread != lockOwner) //current thread is not lock owner
+    {
+        return;
+    }
+
+    if(!waitQueue->IsEmpty()) //lock waitQueue is not empty
+    {
+        Thread* thread = (Thread*)waitQueue->Remove(); //remove 1 waiting thread
+        serverLocks[lockIndex].lockOwner = thread; //make them lock owner
+        scheduler->ReadyToRun(thread); //this Send
+    }
+    else
+    {
+        serverLocks[lockIndex].lockStatus = FREE; //make lock available
+        serverLocks[lockIndex].lockOwner = NULL; //unset ownership
+    }
 }
 
 void DestroyLock_server(int lockIndex) {
-    validateLockIndex(lockIndex);
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
 }
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
@@ -144,15 +211,21 @@ int CreateMonitor_server(string name, int appendNum) {
 }
 
 void GetMonitor_server(int monitorIndex) {
-    validateMonitorIndex(monitorIndex);
+    if(!validateMonitorIndex(monitorIndex)) {
+        return;
+    }
 }
 
 void SetMonitor_server(int monitorIndex) {
-    validateMonitorIndex(monitorIndex);
+    if(!validateMonitorIndex(monitorIndex)) {
+        return;
+    }
 }
 
 void DestroyMonitor_server(int monitorIndex) {
-    validateMonitorIndex(monitorIndex);
+    if(!validateMonitorIndex(monitorIndex)) {
+        return;
+    }
 }
 
 // ++++++++++++++++++++++++++++ CVs ++++++++++++++++++++++++++++
@@ -162,22 +235,90 @@ int CreateCondition_server(string name, int appendNum) {
 }
 
 void Wait_server(int lockIndex, int conditionIndex) {
-    validateLockIndex(lockIndex);
-    validateConditionIndex(conditionIndex);
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+    if(validateConditionIndex(conditionIndex)) {
+        return;
+    }
+
+    if(serverLocks[lockIndex] == NULL)
+    {
+        return;
+    }
+    if(serverConds[conditionIndex] == NULL)
+    {
+        //no one waiting
+        serverConds[conditionIndex] = serverLocks[lockIndex];
+    }
+    if(serverConds[conditionIndex] != serverLocks[lockIndex])
+    {
+        return;
+    }
+    //OK to wait
+    serverConds[conditionIndex].waitQueue->Append(currentThread);//Hung: add myself to Condition Variable waitQueue
+    serverLocks[lockIndex].->Release();
+    currentThread->Sleep(); //currentThread is put on the waitQueue
+    serverLocks[lockIndex].->Acquire();
 }
 
 void Signal_server(int lockIndex, int conditionIndex) {
-    validateLockIndex(lockIndex);
-    validateConditionIndex(conditionIndex);
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+    if(validateConditionIndex(conditionIndex)) {
+        return;
+    }
+
+    if(serverConds[conditionIndex].waitQueue->IsEmpty()) //no thread waiting
+    {
+        return;
+    }
+
+    if(serverConds[conditionIndex] != serverLocks[lockIndex])
+    {
+        return;
+    }
+
+    //Wake up one waiting thread
+    Thread* thread = (Thread*)waitQueue->Remove();//Remove one thread from waitQueue
+
+    scheduler->ReadyToRun(thread); //Put on readyQueue
+
+    if(serverConds[conditionIndex].waitQueue->IsEmpty()) //waitQueue is empty
+    {
+        serverConds[conditionIndex] = NULL;
+    }
 }
 
 void Broadcast_server(int lockIndex, int conditionIndex) {
-    validateLockIndex(lockIndex);
-    validateConditionIndex(conditionIndex);
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+    if(validateConditionIndex(conditionIndex)) {
+        return;
+    }
+
+    if(serverLocks[lockIndex] == NULL)
+    {
+        return;
+    }
+
+    if(serverLocks[lockIndex] != serverConds[conditionIndex].waitingLock)
+    {
+        return;
+    }
+
+    while(!serverConds[conditionIndex].waitQueue->IsEmpty()) //waitQueue is not empty
+    {
+        Signal(serverLocks[lockIndex]);
+    }
 }
 
 void DestroyCondition_server(int conditionIndex) {
-    validateConditionIndex(conditionIndex);
+    if(validateConditionIndex(conditionIndex)) {
+        return;
+    }
 }
 
 // int CreateLock_sys(int vaddr, int size, int appendNum); LC
