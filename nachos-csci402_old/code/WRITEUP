@@ -1,0 +1,381 @@
+Template for CSCI402 Project Writeup
+
+This document is intended to act as a template for students to assist them in finishing the project writeup. A well-written writeup is helpful for students to summarize their achievements and for graders to evaluate the student's efforts.
+
+As far as the length of the writeup, you need to explain your code in the writeup.  Just using a few words isn't going to get it done.  In addition, remember that this is an advanced class, so you don't need to describe every line of code that you write.  We are interested in what you understand about the theory behind the code you're writing and your level of understanding for the practical problems we assign to use the code you wrote to implement the theory.  So don't be too brief and don't go overboard on what you describe.
+
+Some Basic Writeup Rules
+1. The writeup must be a plain text file and submitted with your source code together.  No MS word documents.
+
+2. If you fail to finish the development of your code describe what you've got for each part of the project.  You should at least be able to describe your design.
+
+3. Usually there are a number of parts for each assignment, the development of one part may be related to another. You have the freedom to talk about each part separately or together under one section of your writeup.  Whichever way you decide, be sure that you make it clear how you are describing each part.
+
+4. The lines starting with an index number, such as I, II, III, etc., and starting with '+' are section and subsection headings. You must retain these headings in your WRITEUP file, placing your specific writeup description within the headings.
+
+5. The words starting with '-' are instructions about what to put in those section/subsection headings.  Do no include them in the writeup file you submit.
+
+WRITEUP Template
+Title:  Writeup for Project 2, Fall 2015
+Date:  10/20/2015
+Group:	Name	Email
+  Conner Frey connerfr@usc.edu
+Calvin Leung yuikwanl@usc.edu
+Hung Vu Viet vuviet@usc.edu
+
+I. Requirements:
+- For Project 2, we will be supporting multiprogramming.  We will be working off of our Project 1 code as well as code given to us in order to complete the assignment.  Currently Nachos only runs a single user program, we basically need to make it able to support 2 user programs.  First we will start off by creating our own syscalls.  Most notably, the syscalls we will be writing is Fork, Exec, and Exit.  In addition to these three syscalls, we will also be implementing CreateLock, Acquire, Release, DestroyLock, CreateCondition, Signal, Wait, Broadcast, and DestroyCondition.  In order to add a Syscall we must do a few things.  First, we must add the syscall code inside syscall.h.  Second, we must add the User Syscalls inside syscall.h.  After we do this, we need to go into start.s and add the MIPS code to create the link between the Kernel syscall and the user syscall.  Once the links have been made inside start.s, we need to add the kernel syscall inside Exception.cc.  Also inside Exception.cc, we need to add the Syscall code from syscall.h to the big switch statement so that we can catch the syscall.  Then we need to write unit tests for the syscall in order to make sure that it is working.  Now the user can use Syscall.
+
+Another thing that we needed to do for this project is modify the pagetable and AddrSpace.cc to support concurrency inside a process.  We followed the implementation of the pagetable as described in the student documentation. We first instantiate a page table with the executable; the initial data, uninitialized data and the code, then assign 8 pages to the stack for the very first thread - the main - that the first process calls. After that, whenever a new thread is forked, a new page table is instantiated, of the same size as the old page table + 8 new pages, for the new thread’s stack. The pagetable is alive for the entire duration of the process, and is deleted when the process is deleted in exit.
+
+We also needed to create a ProcessTable inside AddrSpace.cc/.h in order to support multiple processes.  The ProcessTable struct contains a list of Process structs and a count of the number of processes.  Each Process inside the process table has a list of stack locations which point to the top of the stack for each thread inside the current process.  The process also maintains a thread count which is used by the Exit syscall to that the program knows how to exit.
+
+The three big syscalls are Fork, Exit, and Exec.  We implemented Fork by passing a function void pointer and a user-specified integer into the syscall. The void pointer to a function is going to be forked on the kernel level, and the user-specified integer is used so the user can assign unique identifiers to threads. Fork syscall then closely follows the student documentation. The Exec again closely follows the implementation in the student documentation. There’s a process table declared as a kernel variable, and every new process is added to this table as a processEntry. Every processEntry also has a stack location array which keeps track of the stack location start for each thread’s stack. This can be used later to delete threads, and delete entire processes. Exit has three cases, and is called when any thread finishes. These test cases are whether a thread is the last thread in a process, whether a thread is the last process, but it is not the last process, and finally if a thread is the last thread in the last process. For the first case, only the thread and the thread’s stack is deleted, in the second case, the thread’s entire address space is deleted along with the process, and in the last case, the entire program is halted.
+
+In order to complete this project we also needed to update the passportoffice.cc.  To do this, we converted our threadtest.cc file from project 1 into C code in order to show that we can access the syscalls without an object oriented paradigm as a normal OS would.  We then had to convert all of our previous C++ code into C by converting objects to structs and using arrays instead of vectors etc.  We then had to convert all of our calls to Locks, Conditions, Threads, Fork, etc. into our custom syscalls that work with C.  We then must test the passportoffice.c so that it performs the same way that our passport office performed in project 1.
+
+After we get the passport office working in one instance, we will be running passportoffice.cc in another file using Exec() in order to obtain the desired multiprogramming, multithreaded nachos operating system.  We must verify that we are running two programs simultaneously by analyzing the output, and then we are done!
+
+Ultimately, this project forces us to delve into and understand User and Kernel level code in Nachos.  We have to maintain the page table, process table, virtual/phys memory.  We have to make syscalls so that the user can run 2 programs and we need to give support for concurrency programming.
+
+Update: The custom syscalls that we made in addition to the syscalls that are required are: Rand(), PrintString(), PrintNum(), PrintNl(), and GetThreadArgs()
+
+II. Assumptions:
+- Reasonable assumptions you take for your scheme.
+we assume that we have infinite physical memory
+we assume that the user is only going to run two programs at the same time.
+we assume memory locations are in blocks and we would insert/ delete in the process table in blocks of 8 instead of finding every page separately
+we assume user-level errors are not the kernel’s responsibility - the kernel has to return and resume normal operation, i.e. be bulletproof, without checking errors for the user; of course, we would have to check for invalid memory access and anything that would result in an error in the operating systems
+we assume Exit(0) is always called at the end of a user program
+we assume there is a maximum possible number of locks and conditions and threads
+
+III. Design:
+- This section is to cover your logic and ideas as to how  you are going to solve the problem presented.  This should include a description of classes, algorithms, etc. This is not code. You must document ALL parts of a project.
+We created a UserLock struct inside System.h/.cc in order to keep track of the locks that the user creates.
+We created a UserCond struct inside System.h/.cc in order to keep track of the condition variables that the user creates.
+We implemented all the security and sanity checks in lock and condition syscalls
+We created a ProcessTable class that keeps track of earch Process currently running
+We created a ProcessEntry struct to keep track of all of the AddrSpaces, stackLocations per process, and also threads so that we have the data associated with each processentry
+We implemented new syscalls including Rand(), PrintString(), PrintNum(), PrintNl() (print new line) etc. to facilitate user program actions
+We have arrays of locks and conditions residing in an addressspace
+We have added pagetablelocks
+All of the names passed into the Exec and Fork must be at most length 32 characters.
+IV. Implementation:
++Files modified
+In ../userprog/
++ addrspace.h
++ addrspace.cc
++ syscall.h
++ exception.cc
++ progtest.cc
+Every thread gets an entry in the processTable->processEntries to
+indicate the top of the stack location for every thread, therefore the very first process get their AddressSpace added to the process table and the first thread gets their stack location added to the processEntries
+In ../threads/
++ thread.h
+
++ thread.cc
++ system.h
+Kernel wide variables added here
++ system.cc
+In ../test/
++ start.s
+
++ Files added
+In ../userprog/
++ custom_syscalls.cc
++ condition_syscalls.cc
++ lock_syscalls.cc
++ passportoffice.c
++ locktest.c
++ condtest.c
++ passportRunner.c
++ exectests.c
++ forktests.c
+
+
++ Data Structures added, and the file they were added to.
++ In system.h
+extern Thread *currentThread;			// the thread holding the CPU
+extern Thread *threadToBeDestroyed;  		// the thread that just finished
+extern Scheduler *scheduler;			// the ready list
+extern Interrupt *interrupt;			// interrupt status
+extern Statistics *stats;			// performance metrics
+extern Timer *timer;				// the hardware alarm clock
+
+extern Lock* kernelLock;
+extern int processCount;
+extern int totalThreadCount;
+extern BitMap* bitmap;
+extern ProcessTable* processTable;
+extern int threadArgs[500];
+
+struct UserLock {
+bool deleteFlag;
+Lock* userLock;
+bool isDeleted;
+};
+
+struct UserCond {
+bool deleteFlag;
+Condition* userCond;
+bool isDeleted;
+};
+
+class ProcessEntry {
+public:
+  AddrSpace* space;
+  SpaceId spaceId;
+  int sleepThreadCount;
+  int awakeThreadCount;
+  int stackLocations[ADDRESS_SPACE_COUNT];
+};
+
+class ProcessTable {
+public:
+  ProcessTable() {
+    runningProcessCount = 0;
+  }
+  ProcessEntry* processEntries[ADDRESS_SPACE_COUNT];
+  int runningProcessCount;
+};
+
++ In
++ Data Structures modified, and the file they were added to.
++
+  -For example,
+    class Lock		-- in file threads.cc/threads.h
+    {
+      //. Modified fields.
+    }
++ class Thread{
+void setStatus(ThreadStatus st) { status = st; }
+int stackLocations[1000];
+}
++ class AddrSpace{
+    unsigned int getNumPages() { return numPages; }
+  int processId;
+  int spaceId;
+  int NewPageTable();
+  void DeleteCurrentThread();
+  void PrintPageTable();
+
+  int currentPCReg_space;
+  int nextPCReg_space;
+  int stackReg_space;
+  int threadCount;
+  int lockCount;
+  int condCount;
+  UserLock* userLocks;
+  UserCond* userConds;
+  Lock* locksLock;
+  Lock* condsLock;
+  int StackTopForMain;
+
+}
++ Functions added and in which file.
++ Functions modified and in which file.
++ int my_strcmp(char s1[], const char s2[], int len)
++ basically the ANSI C strcmp function with some slight modifications to support Nachos since there is no heap
++ int my_strcpy(char s1[], const char s2[], int len)
++ basically the ANSI C strncpy function with some slight modifications to support Nachos since there is no heap
+
+V. Testing:  (For each test case, you must show)
++ How to test
++ to test locks, run with nachos -x ..test/locktest -d l
+- We added the names of locks for easy debugging, it doesn’t matter what the user passes in or if the lockname is empty
+    TESTING OUTPUTS
+-Starting User Program.
+AddrSpace::AddrSpace() sizeOfExecutable: 2192
+AddrSpace::AddrSpace() numPages: 26
+Assigned space.
+Accessing process table.
+Saving processEntry.
+  Lock::Lock number: 0 || name:  created by main
+  Lock::Lock number: 1 || name: Lock1 created by main
+  Lock::Lock number: 2 || name: Lock2 created by main
+  Lock::Lock number: 3 || name: deadLock1 created by main
+  Lock::Lock number: 4 || name: deadLock2 created by main
+  Lock::Lock number: 5 || name: lockToBeDestroyed created by main
+Testing invalid actions for locks
+Acquiring theLockThatDoesntExist, should give error
+  Lock::Lock number 11 invalid, thread main can't acquire-----------------------
+Releasing theLockThatDoesntExist, should give error
+Lock number 11 invalid, thread main can't release-----------------------
+Destroying theLockThatDoesntExist, should give error
+Lock number 11 invalid, thread main can't destroy-----------------------
+Destroying lockToBeDestroyed, should be successful
+Lock number 5 and name lockToBeDestroyed deleted-----------------------
+Fork Syscall, total threadCount: 1
+currentThread->space->threadCount: 2
+Creating new pagetable for currentThread: main
+Start stack location for Kernel_thread: 26
+Before KernelThread
+After KernelThread
+Fork Syscall, total threadCount: 2
+currentThread->space->threadCount: 3
+Creating new pagetable for currentThread: main
+Start stack location for Kernel_thread: 34
+Before KernelThread
+After KernelThread
+Finshing lockfiles.c
+----------------------- EXIT SYSCALL ------------------------------
+Current thread: main, currentThread ProcessID: 1
+Number of threads for this process: 3 running processes: 0
+isLastProcessVar:1, isLastExecutingThreadVar: 0
+Not last thread in a process, deleting thread.
+In DeleteCurrentThread, stackLocation: 18
+-------- launching KernelThread --------
+++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 1
+stackRegForNewStack: 4336 // should be 1024 bytes apart, stackRegForNewStak: 4336
+t1 releasing lock1 before acquiring
+lock not in use, nothing is done-----------------------
+t1 acquiring lock1, should be successful
+  Lock::Lock number: 1 || name:  Lock1 acquired by KernelThread
+t1 output should be 50 to show that there is no race condition in for loop 1-50
+50
+t1 releasing lock1
+  Lock::Lock number: 1 || and name: Lock1 released by KernelThread
+t1 acquiring lock2     Lock::Lock number: 2 || name:  Lock2 acquired by KernelThread
+----------------------- EXIT SYSCALL ------------------------------
+Current thread: KernelThread, currentThread ProcessID: 1
+Number of threads for this process: 2 running processes: 0
+isLastProcessVar:1, isLastExecutingThreadVar: 0
+Not last thread in a process, deleting thread.
+In DeleteCurrentThread, stackLocation: 26
+-------- launching KernelThread --------
+++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 2
+stackRegForNewStack: 5360 // should be 1024 bytes apart, stackRegForNewStak: 5360
+t2 acquiring lock1
+  Lock::Lock number: 1 || name:  Lock1 acquired by KernelThread
+t1 output should be 100 to show that there is no race condition in for loop
+100
+t2 releasing lock1
+----------------------- EXIT SYSCALL ------------------------------
+Current thread: KernelThread, currentThread ProcessID: 1
+Number of threads for this process: 1 running processes: 0
+isLastProcessVar:1, isLastExecutingThreadVar: 1
+Last process and last thread, stopping program
+Machine halting!
+
+Description:
+All the locks are first created by the main thread
+Then kernel system calls and addressspace allocation happens
+Thread 1 and 2 are forked and the main thread is finished and exits first
+Thread 1 runs with normal acquiring, releasing and destroying calls, there is a forloop that adds 1 every loop for 50 times
+Thread 2 runs and acquires the same lock from thread 1, i.e. it has to wait until thread 1 finishes
+The sum for thread 1 and 2 should be 60 at some point, but 50 or 10 can be printed first as it is random which thread runs first
+All threads exits
+
++ to test condition variables, run with nachos -x ..test/condtest
+Saving processEntry.
+++++++++ Starting the condition variable testsuite ++++++++
+Creating Condition and Lock with bad string lengths
+  CreateCondition::main size must be: (size < 0 || size > 32) ? -1
+main size must be between 0 and 32!-----------------------
+  CreateCondition::Condition number: 0 || name: Condition2 is created by main
+  CreateLock::Lock number: 0 || name: Lock2 created by main
+Success!  Both cond1 and lock1 equal -1
+Creating valid Condition and Lock
+  CreateCondition::Condition number: 1 || name: Condition1 is created by main
+  CreateLock::Lock number: 1 || name: Lock1 created by main
+Wait with bad condition
+  Wait::invalid cond
+Wait with bad lock
+  Wait::invalid lock
+Signalling with bad condition
+  Signal::invalid cond
+Signalling with bad lock
+  Signal::invalid lock
+Broadcast with bad condition
+  Broadcast::invalid cond
+Broadcast with bad lock
+  Broadcast::invalid lock
+Destroying bad condition
+  DestroyCondition::destroying invalid cond
+Destroying valid condition
+++++++++++++ starting actual testing conditions ++++++++++++    CreateCondition::Condition number: 2 || name: Condition3 is created by main
+>>>>>>>>>>>>>main thread trying to acquire lock2
+  Acquire::Lock number: 0 || name:  Lock2 acquired by main
+>>>>>>>>>>>>>main thread acquired lock2
+>>>>>>>>>>>>>Forked thread 1
+Fork Syscall, total threadCount: 1
+currentThread->space->threadCount: 2
+Creating new pagetable for currentThread: main
+Start stack location for Kernel_thread: 34
+Before KernelThread
+After KernelThread
+>>>>>>>>>>>>>Forked thread 2
+Fork Syscall, total threadCount: 2
+currentThread->space->threadCount: 3
+Creating new pagetable for currentThread: main
+Start stack location for Kernel_thread: 42
+Before KernelThread
+After KernelThread
+>>>>>>>>>>>>>main thread waiting on lock2
+  Wait::Condition  number 2, name Condition3 is waited on by main
+-------- launching KernelThread --------
+++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 1
+stackRegForNewStack: 5360 // should be 1024 bytes apart, stackRegForNewStak: 5360
+>>>>>>>>>>>>>t1 thread started
+>>>>>>>>>>>>>t1 trying to acquire lock2
+  Acquire::Lock number: 0 || name:  Lock2 acquired by KernelThread
+>>>>>>>>>>>>>t1 acquired lock2
+>>>>>>>>>>>>>t1 Waiting for lock2
+  Wait::Condition  number 0, name Condition2 is waited on by KernelThread
+-------- launching KernelThread --------
+++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 2
+stackRegForNewStack: 6384 // should be 1024 bytes apart, stackRegForNewStak: 6384
+>>>>>>>>>>>>>t2 thread started
+>>>>>>>>>>>>>t2 trying to acquire lock2
+  Acquire::Lock number: 0 || name:  Lock2 acquired by KernelThread
+>>>>>>>>>>>>>t2 acquired lock1
+>>>>>>>>>>>>>t2 trying to signal lock2 (t1)
+  Condition  number 0, name Condition2 is signalled by KernelThread
+>>>>>>>>>>>>>t2 signaled lock2 (t1)
+>>>>>>>>>>>>>t2 releasing lock2
+  Release::Lock number: 0 || and name: Lock2 released by KernelThread
+----------------------- EXIT SYSCALL ------------------------------
+Current thread: KernelThread, currentThread ProcessID: 1
+Number of threads for this process: 3 running processes: 0
+isLastProcessVar:1, isLastExecutingThreadVar: 0
+Not last thread in a process, deleting thread.
+In DeleteCurrentThread, stackLocation: 42
+>>>>>>>>>>>>>t1 Signaled by lock2
+  Condition  number 2, name Condition3 is signalled by KernelThread
+  Release::Lock number: 0 || and name: Lock2 released by KernelThread
+----------------------- EXIT SYSCALL ------------------------------
+Current thread: KernelThread, currentThread ProcessID: 1
+Number of threads for this process: 2 running processes: 0
+isLastProcessVar:1, isLastExecutingThreadVar: 0
+Not last thread in a process, deleting thread.
+In DeleteCurrentThread, stackLocation: 34
+>>>>>>>>>>>>>main thread signaled by t1
+  Release::Lock number: 0 || and name: Lock2 released by main
+>>>>>>>>>>>>>main thread released lock2
+-------- Finshing Condition test suite --------
+----------------------- EXIT SYSCALL ------------------------------
+Current thread: main, currentThread ProcessID: 1
+Number of threads for this process: 1 running processes: 0
+isLastProcessVar:1, isLastExecutingThreadVar: 1
+Last process and last thread, stopping program
+Machine halting!
+
++ The above output shows the output of the condition variable test suite.  The scoped calls “Wait::Condition number 0, name Condition2 is waiting” shows the print from the current function and which condition and which name it is.  The “>>>>>>>>>>>>>” statements show what is actually happening in the program with the threads acquiring locks and signalling each other.  We can assert that this is correct because we get the expected behavior with 2 locks and a CV when running the program.  The way the testsuite is set up is that we test for edge cases first––bad values, long char arrays, etc––then we test for creating and destroying valid conditions.  Then we test that the conditions are used correctly with the correct behavior.
+
+- Describe the testing output. You don't have to dump all the output info. Just make sure your description can exactly reflect your output. The grader of your submission will be wanting to compare the output they get with what you say the output is.
+
+
+To test Exec syscall, run: nachos -x ../test/exectests
+The tests should show that it executes the first two files, as they exist in the test directory, while it will output that it cannot read the files for the last three cases, as the input are not file names anywhere.
+
+To test Fork syscall, run: nachos -x ../test/condtests
+    The test should show that fork works as it is able to call helloworld, and then the the two forks with addOneAndPrintNumber prove that forks work in the same addressspace and can access the same variables in the same process
+
+VI. Discussion:
++ Experiment expectation.  (What is supposed to happen.)  For the final Experiment, we should be able to use the passportRunner.c program in order to run two passport offices simultaneously by Exec-ing the passportoffice.c program.  If we run the passport office with the same parameters for both instances, we expect that there will be twice as many clerks service customers, twice as many customers finish, and twice as many Managers manage.  However, the threads instantiated by each respective instance of passport office will keep to themselves even though they will be executing at the same time.  Thus we will have achieved two independent passport offices running at the same time.
++ Our expectation was correct.  After writing all of the output into a file, we were able to locate twice as many instances as one passport office––twice as many locks, CVs, customers, managers, clerks, etc.  However, each of these instance were independent to their own passport office.  We were able to verify this because even though there were 20 customer threads, two customers were named “customer_0”, two were named “customer_1”, two were named “customer_3” and so on and so forth.  This means that each passport office made their own instances of customers without any knowledge of each other––perfect multiprogramming!
++ Explanation
+  - Essentially, we can assert that we are correct in our implementations of Fork, Exec, and Exit to run the passport office because we got double the output, but after sorting out the duplicate print statements, each office had the same printouts (minus the random money calculations and manager money counts of course).  The statements from each of the offices were also interwoven between eachother, proving that they were executed at the “same time”.  Thus we can assume that both of our passport offices ran simultaneously.  Since both offices exited correctly and contained all of the correct output, we can fully conclude that our implementation is correct.
+
+VIII. Miscellaneous:
+- Happy grading (:
