@@ -32,6 +32,9 @@ ProcessTable* processTable;
 int threadArgs[500];
 int tlbCounter;
 IptEntry ipt[NumPhysPages];
+OpenFile *swapfile;
+BitMap* swapfileBitmap;
+List* swapQueue;
 
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
@@ -152,13 +155,17 @@ Initialize(int argc, char **argv)
     bitmap = new BitMap(NumPhysPages);
     processTable = new ProcessTable();
     tlbCounter = -1;
+    swapfile = fileSystem->Open("swapfile.txt"); //TODO: this file would be in vm directory for now, make it a global consant and decide where to put the actual file
+    swapfileBitmap = new BitMap(1000); //TODO: decide on an arbitrarily large number and make it a #define
+    swapQueue = new List();
+    }
 
     DebugInit(debugArgs);			// initialize DEBUG messages
     stats = new Statistics();			// collect statistics
     interrupt = new Interrupt;			// start up interrupt handling
     scheduler = new Scheduler();		// initialize the ready queue
     if (randomYield)				// start the timer (if needed)
-	timer = new Timer(TimerInterruptHandler, 0, randomYield);
+	  timer = new Timer(TimerInterruptHandler, 0, randomYield);
 
     threadToBeDestroyed = NULL;
 

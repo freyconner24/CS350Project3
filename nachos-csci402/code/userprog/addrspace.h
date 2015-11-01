@@ -29,10 +29,18 @@
 struct UserLock;
 struct UserCond;
 class ProcessEntry;
+enum DiskLocation {SWAP, EXECUTABLE, NEITHER}; // 0 - SWAP, 1 - EXECUTABLE, 2 - NEITHER
+
+
+class ExtendedTranslationEntry : public TranslationEntry{
+  public:
+    int byteOffset;
+    DiskLocation diskLocation;
+};
 
 class AddrSpace {
   public:
-    AddrSpace(OpenFile *executable);	// Create an address space,
+    AddrSpace(char *filename);	// Create an address space,
 					// initializing it with the program
 					// stored in the file "executable"
     ~AddrSpace();			// De-allocate an address space
@@ -61,14 +69,15 @@ class AddrSpace {
     Lock* locksLock;
     Lock* condsLock;
     int StackTopForMain;
-
+    ExtendedTranslationEntry  *pageTable;	// Assume linear page table translation
+    OpenFile *executable;
  private:
-    TranslationEntry *pageTable;	// Assume linear page table translation
-					// for now!
+ 					// for now!
     Lock *pageTableLock;
     unsigned int numPages;		// Number of pages in the virtual
 					// address space
     ProcessEntry* processEntry;
+
 };
 
 #endif // ADDRSPACE_H

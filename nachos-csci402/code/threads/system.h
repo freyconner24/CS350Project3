@@ -18,11 +18,12 @@
 #include "timer.h"
 #include "syscall.h"
 #include "addrspace.h"
+#include "list.h"
 
 #define MAX_LOCK_COUNT 50
 #define MAX_COND_COUNT 50
 #define ADDRESS_SPACE_COUNT 500
-#define TLB_SIZE 4
+// #define TLB_SIZE 4
 
 // Initialization and cleanup routines
 extern void Initialize(int argc, char **argv); 	// Initialization,
@@ -60,7 +61,7 @@ class ProcessTable {
 		int runningProcessCount;
 };
 
-class IptEntry: public TranslationEntry {
+class IptEntry: public TranslationEntry{
 	public:
 		AddrSpace* spaceOwner;
 };
@@ -73,7 +74,6 @@ extern Statistics *stats;			// performance metrics
 extern Timer *timer;				// the hardware alarm clock
 
 extern Lock* kernelLock;
-extern Lock* tlbLock;
 extern int processCount;
 extern int totalThreadCount;
 extern BitMap* bitmap;
@@ -81,7 +81,9 @@ extern ProcessTable* processTable;
 extern int threadArgs[500];
 extern int tlbCounter;
 extern IptEntry ipt[NumPhysPages];
-
+extern OpenFile *swapfile;
+extern BitMap* swapfileBitmap;
+extern List* swapQueue;
 #ifdef USER_PROGRAM
 #include "machine.h"
 extern Machine* machine;	// user program memory and registers

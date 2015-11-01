@@ -355,90 +355,132 @@ bool isLastProcess() {
     }
 }
 
-// when we get to step four
+int handleMemoryFull(){
+  printf("Entering handleMemoryFull()\n");
+  cout << "Got here 3" << endl;
+  ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
+  // if(/*something that indicates FIFO replacement*/){ //TODO: FIFO or random replacement
+  //}else if(/*something that indicates random replacement*/){
+    int pageToBoot = rand () % NumPhysPages;
+    int swapLocation = -1;
+    if(ipt[pageToBoot].dirty){
+      cout << "Got here 3.1" << endl;
 
-int handleMemoryFull() {
-    //evict a page in IPT
-    //bitmap->Find() to get the next ppn
-    int ppn;
-    bool isRand = true; //argv[0] == "RAND" from command line
-    if(isRand) {
-        ppn = rand() % NumPhysPages;
-        // TODO: need to do something with this
-    } else { // FIFO
-
+      swapLocation = swapfileBitmap->Find();
+      swapfile->WriteAt(&(machine->mainMemory[pageToBoot * PageSize]), PageSize, swapLocation);
+      pageTable[ipt[pageToBoot].virtualPage].diskLocation = SWAP;
+      pageTable[ipt[pageToBoot].virtualPage].physicalPage = swapLocation;
     }
 
-    return ppn;
+    // for(int i = 0; i < NumPhysPages; i++){
+    //   swapLocation = swapfileBitmap->Find(); //NOTE: should always return valid page, swapfile essentially infinite
+    //   if()
+    //   swapfile->WriteAt(&(machine->mainMemory[ipt[i].physicalPage * PageSize], PageSize, swapLocation);
+    //   pageTable[ipt[i].virtualPage].diskLocation = SWAP;
+    //   pageTable[ipt[i].virtualPage].physicalPage = swapLocation;
+    // }
+
+  //}
+    cout << "Got here 3.2" << endl;
+  bitmap->Clear(pageToBoot);
+  int newPhysPage = bitmap->Find();
+  if(newPhysPage != pageToBoot) {
+    cout << "Got here 3.3" << endl;
+    printf("newPhysPage and pageToBoot are different: %d %d\n", newPhysPage, pageToBoot);
+  }
+
+  if(newPhysPage == -1) {
+    cout << "Got here 3.4" << endl;
+    printf("newPhysPage was -1: %d", newPhysPage);
+    interrupt->Halt();
+  }
+  cout << "Got here 3.5" << endl;
+
+  return newPhysPage;
 }
 
-int handleIPTMiss( int neededVPN ) {
-    int ppn = bitMap->Find();  //Find a physical page of memory
-    if(ppn == -1) {
-        ppn = handleMemoryFull();
-    }
-    //read values from page table as to location of needed virtual page
-    //copy page from disk to memory, if needed
-    return ppn;
+int handleIPTMiss(int virtualPage){
+  int ppn = bitmap->Find();  //Find a physical page of memory
+  printf("Entering handleIPTMiss(virtualPage: %d)\n", virtualPage);
+  ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
+  cout << "Got here 2" << endl;
+
+  if ( ppn == -1 ) {
+        cout << "Got here 2.1" << endl;
+      ppn = handleMemoryFull();
+  }
+  cout << "Got here 2.2" << endl;
+  if(pageTable[virtualPage].diskLocation == EXECUTABLE){
+      cout << "Got here 2.3" << endl;
+      currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
+    //executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]), PageSize, 40 + pageTable[i].virtualPage * PageSize);
+
+  }else if(pageTable[virtualPage].diskLocation == SWAP){
+    cout << "Got here 2.4" << endl;
+    //TODO: swap file handling
+    swapfile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].physicalPage);
+
+    cout << "Got here 2.5" << endl;
+    // pagetTable[virtualPage]->diskLocation = ??;
+    //NOTE: could add Clear from swapfile, cause now the page is in main memory
+  }else{
+    //TODO: neither
+  }
+
+  cout << "Got here 2.6" << endl;
+
+  ipt[ppn].virtualPage = virtualPage;
+  ipt[ppn].physicalPage = ppn;
+  ipt[ppn].valid = TRUE;
+  ipt[ppn].use = TRUE;
+  ipt[ppn].dirty = FALSE;
+  ipt[ppn].readOnly = FALSE;
+  ipt[ppn].spaceOwner = currentThread->space; // extra piece of shit
+  
+  pageTable[virtualPage].physicalPage = ppn;
+  pageTable[virtualPage].virtualPage = virtualPage;
+  pageTable[virtualPage].valid = TRUE;
+  pageTable[virtualPage].use = TRUE;
+  pageTable[virtualPage].dirty = FALSE;
+  pageTable[virtualPage].readOnly = FALSE;
+  pageTable[virtualPage].byteOffset = 40 + pageTable[virtualPage].virtualPage * PageSize;
+
+  return ppn;
 }
 
-void handlePageFaultException(int virtualAddress) {
-    tlbLock->Acquire();
+void HandlePageFault(int virtualAddress) {
+    int virtualPage = virtualAddress / PageSize;
+    printf("Entering HandlePageFault(virtualAddress: %d)\n", virtualAddress);
+    printf("virtualPage = virtualAddress / PageSize: %d\n", virtualPage);
     ++tlbCounter;
-    int vpn = virtualAddress / PageSi;
-    // machine->tlb[tlbCounter % 4] = currentThread->space->pageTable[virtualAddress];
+    TranslationEntry* tlb = machine->tlb;
+
     int ppn = -1;
-    // we are searching for the index of the IPT which matches the VPN so we can put into TLB
-    for(int i = 0; i < NumPhysPages; ++i) {
+    for ( int i=0; i < NumPhysPages; i ++) {
         //Found the physical page we need
-        // we don't know what the physical page number is
-        if(ipt[i].valid && 
-            vpn == ipt[i].virtualPage && 
-            ipt[i].spaceOwner == currentThread->space) {
-            
+        if(ipt[i].virtualPage == virtualPage && 
+          ipt[i].spaceOwner == currentThread->space && 
+          ipt[i].valid){
+            cout << "Got here 1" << endl;
             ppn = i;
             break;
         }
     }
+    if ( ppn = -1 ) {
+        cout << "Got here 1.1" << endl;
+        ppn = handleIPTMiss( virtualPage );
+    }
+    
+    cout << "Got here 1.2" << endl;
 
-    if (ppn = -1) {
-        ppn = handleIPTMiss(vpn);
-    } 
+    tlb[tlbCounter % 4].virtualPage   = ipt[ppn].virtualPage;
+    tlb[tlbCounter % 4].physicalPage  = ipt[ppn].physicalPage;
+    tlb[tlbCounter % 4].valid         = ipt[ppn].valid;
+    tlb[tlbCounter % 4].use           = ipt[ppn].use;
+    tlb[tlbCounter % 4].dirty         = ipt[ppn].dirty;
+    tlb[tlbCounter % 4].readOnly      = ipt[ppn].readOnly;
 
-    int tlbIndex = tlbCounter % 4;
-    machine->tlb[tlbIndex].virtualPage = ipt[ppn].virtualPage;   // for now, virtual page # = phys page #
-    machine->tlb[tlbIndex].physicalPage = ipt[ppn].physicalPage;
-    machine->tlb[tlbIndex].valid = ipt[ppn].valid;
-    machine->tlb[tlbIndex].use = ipt[ppn].use;
-    machine->tlb[tlbIndex].dirty = ipt[ppn].dirty;
-    machine->tlb[tlbIndex].readOnly = ipt[ppn].readOnly;
-    //TODO: might have to flip the dirty bit if something changes
-    tlbLock->Release();
 }
-
-void invalidateTLB(int virtualAddress) {
-    // set all valid bits false
-    // turn off interrupts
-
-
-    // enable interrupts
-
-    //TODO:
-    //Be sure to invalidate the contents of the TLB on a context switch. 
-    //If you want to get fancy, you can do a check and only invalidate 
-    //the TLB if the incoming thread is from a different process than the outgoing thread. 
-    //If they are from the same process, they have the same address space.
-
-    //TODO:
-    //Any time that the TLB is invalidated, the dirty bits must be checked. 
-    //If something has been changed, this change must be propagated back to the page table/IPT. 
-    //Basically, this means that the dirty bit must be set. 
-    //The data has already been changed in memory, 
-    //but if the page table/ITP don't know about this, 
-    //that page in memory could potentially be overwritten.
-}
-
-
 
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
@@ -448,7 +490,7 @@ void ExceptionHandler(ExceptionType which) {
     if ( which == SyscallException ) {
     	switch (type) {
         default:
-            DEBUG('a', "Unknown syscall - shutting down.\n");
+          DEBUG('a', "Unknown syscall - shutting down.\n");
         case SC_Halt:
             DEBUG('a', "Shutdown, initiated by user program.\n      ");
             //cout << "Halt is called by: " << currentThread->getName() << ", number of threads remaining in space: " << currentThread->space->threadCount <<  endl;
@@ -526,22 +568,22 @@ void ExceptionHandler(ExceptionType which) {
             }
             nameOfProcess[32] = '\0';
             OpenFile *filePointer = fileSystem->Open(nameOfProcess);
-            delete [] nameOfProcess;
-            if (filePointer){ // check if pointer is not null
-                AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
-                Thread* newThread = new Thread("ExecThread");
-                newThread->space = as; //Allocate the space created to this thread's space
-                processEntry = new ProcessEntry();
-                processEntry->space = as;
-                processEntry->spaceId = processCount;
-                processTable->processEntries[processCount] = processEntry;
-                processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id] = as->StackTopForMain;
-                //cout << "Start stack location for Exec_thread: " << processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id]<< endl;
 
-                invalidateTLB(virtualAddress);
-                rv = newThread->space->spaceId;
-                newThread->Fork((VoidFunctionPtr)exec_thread, 0);
-                kernelLock->Release();
+            if (filePointer){ // check if pointer is not null
+              AddrSpace* as = new AddrSpace(nameOfProcess); // Create new addrespace for this executable file
+              delete [] nameOfProcess; //TODO: MOVE THIS DELETE AROUND< PLS
+              Thread* newThread = new Thread("ExecThread");
+              newThread->space = as; //Allocate the space created to this thread's space
+              processEntry = new ProcessEntry();
+              processEntry->space = as;
+              processEntry->spaceId = processCount;
+              processTable->processEntries[processCount] = processEntry;
+              processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id] = as->StackTopForMain;
+              //cout << "Start stack location for Exec_thread: " << processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id]<< endl;
+
+              rv = newThread->space->spaceId;
+              newThread->Fork((VoidFunctionPtr)exec_thread, 0);
+              kernelLock->Release();
             }else{
                 printf("%s", "Couldn't open file\n");
                 kernelLock->Release();
@@ -635,18 +677,17 @@ void ExceptionHandler(ExceptionType which) {
             PrintNl_sys();
             break;
         }
-        
-        // Put in the return value and increment the PC
-    	machine->WriteRegister(2,rv);
-    	machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
-    	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
-    	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
-    	return;
+	// Put in the return value and increment the PC
+	machine->WriteRegister(2,rv);
+	machine->WriteRegister(PrevPCReg,machine->ReadRegister(PCReg));
+	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
+	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
+	return;
     } else if(which == PageFaultException) {
-        handlePageFaultException(machine->ReadRegister(39));
-        return;
+        cout << "Got here" << endl;
+        HandlePageFault(machine->ReadRegister(BadVAddrReg));
     } else {
-        cout << "Unexpected user mode exception - which:" << which << "|| type:" << type << " in " << currentThread->getName() << endl;
-        interrupt->Halt();
+cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<< " in " << currentThread->getName() << endl;
+      interrupt->Halt();
     }
 }
