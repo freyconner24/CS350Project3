@@ -141,6 +141,11 @@ main(int argc, char **argv)
             MailTest(atoi(*(argv + 1)));
             argCount = 2;
         }
+
+        if(!strcmp(*argv, "-s")) {
+        	ASSERT(argc > 1);
+        	//Server();
+        }
 #endif // NETWORK
     }
 

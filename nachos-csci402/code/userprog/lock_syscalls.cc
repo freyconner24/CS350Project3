@@ -36,6 +36,27 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
 	}; //copy contents of the virtual addr (ReadRegister(4)) to the buffer
 
 	// set attributes of new lock
+    stringstream ss;
+    ss << "C L " << buffer;
+    char* msg = (char*) ss.str().c_str(); // this msg is what you have to send
+
+	PacketHeader outPktHdr, inPktHdr;
+    MailHeader outMailHdr, inMailHdr;
+
+    outPktHdr.to = farAddr; // TODO: what is farAddr?
+    outMailHdr.to = 0;
+    outMailHdr.from = 1;
+    outMailHdr.length = strlen(msg) + 1;
+
+    bool success = postOffice->Send(outPktHdr, outMailHdr, msg);
+
+    if ( !success ) {
+      printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+      interrupt->Halt();
+    }
+    
+    postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
+
 	currentThread->space->userLocks[currentThread->space->lockCount].userLock = new Lock(buffer); // instantiate new lock
 	currentThread->space->userLocks[currentThread->space->lockCount].deleteFlag = FALSE; // indicate the lock is not to be deleted
 	currentThread->space->userLocks[currentThread->space->lockCount].isDeleted = FALSE; // indicate the lock is not in use

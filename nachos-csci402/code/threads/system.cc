@@ -141,6 +141,7 @@ Initialize(int argc, char **argv)
 	    argCount = 2;
 	}
 #endif
+    }
     userLocks[MAX_LOCK_COUNT];
     userConds[MAX_COND_COUNT];
     kernelLock = new Lock("KernelLock");
