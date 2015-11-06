@@ -151,6 +151,8 @@ int CreateLock_server(string name, int appendNum, PacketHeader pktHdr, MailHeade
     serverLocks[serverLockCount].lockOwner.machineId = pktHdr.from;
     serverLocks[serverLockCount].lockOwner.mailboxNum = mailHdr.from;
 
+    int currentLockIndex = ++serverLockCount;
+
     return currentLockIndex;
 }
 
@@ -162,7 +164,7 @@ void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     }
 
     ServerThread serverCurrentThread;
-    serverCurrentThread.machineId = 0; // this is essentailly the server machineId
+    serverCurrentThread.machineId = pktHdr.from; // this is essentailly the server machineId
     serverCurrentThread.mailboxNum = mailHdr.from; // this is the mailbox that the mail came from since it's equal to client mailbox
 
     if(serverCurrentThread == serverLocks[lockIndex].lockOwner) //current thread is lock owner
@@ -201,6 +203,11 @@ void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
         ServerThread thread = (ServerThread) serverLocks[lockIndex].waitQueue->Remove(); //remove 1 waiting thread
         serverLocks[lockIndex].lockOwner = thread; //make them lock owner
         char* data = "You got the lock!";
+        int clientId = pktHdr.from;
+        pktHdr.from = 0;
+        pktHdr.to = clientId;
+        mailHdr.to = mailHdr.from;
+
         bool success = postOffice->Send(pktHdr, mailHdr, data);
 
         if ( !success ) {
