@@ -142,6 +142,10 @@ Initialize(int argc, char **argv)
 	    ASSERT(argc > 1);
 	    netname = atoi(*(argv + 1));
 	    argCount = 2;
+	}else if (!strcmp(*argv, "-ct")) {
+	    ASSERT(argc > 1);
+	    netname = atoi(*(argv + 1));
+	    argCount = 2;
 	}
 #endif
     userLocks[MAX_LOCK_COUNT];

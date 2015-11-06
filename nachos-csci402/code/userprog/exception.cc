@@ -37,8 +37,6 @@
 
 using namespace std;
 
-int GLOBALCOUNT = 0;
-
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -357,118 +355,6 @@ bool isLastProcess() {
     }
 }
 
-int handleMemoryFull(){
-    printf("Entering handleMemoryFull()\n");
-    cout << "Got here 3" << endl;
-    ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
-    // if(/*something that indicates FIFO replacement*/){ //TODO: FIFO or random replacement
-    //}else if(/*something that indicates random replacement*/){
-    int pageToBoot = rand () % NumPhysPages;
-    if(ipt[pageToBoot].dirty){ // TODO: should be pageTable?
-        cout << "Got here 3.1" << endl;
-        int swapLocationPPN = swapfileBitmap->Find();
-        cout << "Got here 3.1.1" << endl;
-        swapfile->WriteAt(&(machine->mainMemory[pageToBoot * PageSize]), PageSize, PageSize * swapLocationPPN);
-        cout << "Got here 3.1.2" << endl;
-        pageTable[ipt[pageToBoot].virtualPage].diskLocation = SWAP;
-        cout << "Got here 3.1.3" << endl;
-        pageTable[ipt[pageToBoot].virtualPage].byteOffset = PageSize * swapLocationPPN;
-    }
-
-    cout << "Got here 3.2" << endl;
-    return pageToBoot;
-}
-
-int handleIPTMiss(int virtualPage){
-    int ppn = bitmap->Find();  //Find a physical page of memory
-    printf("Entering handleIPTMiss(virtualPage: %d)\n", virtualPage);
-    ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
-    cout << "Got here 2" << endl;
-
-    if ( ppn == -1 ) {
-        cout << "Got here 2.1" << endl;
-        ppn = handleMemoryFull();
-    }
-    if(pageTable[virtualPage].diskLocation == EXECUTABLE){
-        cout << "Got here 2.3" << endl;
-        currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
-        //executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]), PageSize, 40 + pageTable[i].virtualPage * PageSize);
-
-    }else if(pageTable[virtualPage].diskLocation == SWAP){
-        cout << "Got here 2.4" << endl;
-        //TODO: swap file handling
-        swapfile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
-
-        cout << "Got here 2.5" << endl;
-        // pagetTable[virtualPage]->diskLocation = ??;
-        //NOTE: could add Clear from swapfile, cause now the page is in main memory
-    }
-
-    cout << "Got here 2.6" << endl;
-
-    ipt[ppn].virtualPage = virtualPage;
-    ipt[ppn].physicalPage = ppn;
-    ipt[ppn].valid = TRUE;
-    ipt[ppn].use = FALSE;
-    ipt[ppn].dirty = FALSE;
-    ipt[ppn].readOnly = FALSE;
-    ipt[ppn].spaceOwner = currentThread->space; // extra piece of shit
-
-    pageTable[virtualPage].physicalPage = ppn;
-    pageTable[virtualPage].virtualPage = virtualPage;
-    pageTable[virtualPage].valid = TRUE;
-    pageTable[virtualPage].use = FALSE;
-    pageTable[virtualPage].dirty = FALSE;
-    pageTable[virtualPage].readOnly = FALSE;
-
-    return ppn;
-}
-
-void HandlePageFault(int virtualAddress) {
-    int virtualPage = virtualAddress / PageSize;
-    printf("Entering HandlePageFault(virtualAddress: %d)\n", virtualAddress);
-    printf("virtualPage = virtualAddress / PageSize: %d\n", virtualPage);
-    ++tlbCounter;
-    TranslationEntry* tlb = machine->tlb;
-
-    int ppn = -1;
-    
-    IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
-
-    for(int i = 0; i < NumPhysPages; ++i) {
-        //Found the physical page we need
-        //cout << "ipt[i].virtualPage == virtualPage: " << ipt[i].virtualPage << " == " << virtualPage << endl;
-        //cout << "ipt[i].spaceOwner == currentThread->space: " << ipt[i].spaceOwner << " == " << currentThread->space << endl;
-        //cout << "ipt[i].valid: " << ipt[i].valid << endl;
-        if(ipt[i].virtualPage == virtualPage && 
-            ipt[i].spaceOwner == currentThread->space && 
-            ipt[i].valid){
-            ppn = i;
-            cout << "Got here 1 || ppn: " << ppn << endl;
-            break;
-        }
-    }
-    if (ppn == -1) {
-        //cout << "Got here 1.1" << endl
-        ppn = handleIPTMiss( virtualPage );
-    }
-    
-    //cout << "Got here 1.2" << endl;
-
-    if(tlb[tlbCounter % 4].valid) {//TODO: check index
-        ipt[tlb[tlbCounter % 4].physicalPage].dirty = tlb[tlbCounter % 4].dirty;
-    }
-   
-    tlb[tlbCounter % 4].virtualPage   = ipt[ppn].virtualPage;
-    tlb[tlbCounter % 4].physicalPage  = ipt[ppn].physicalPage;
-    tlb[tlbCounter % 4].valid         = ipt[ppn].valid;
-    tlb[tlbCounter % 4].use           = ipt[ppn].use;
-    tlb[tlbCounter % 4].dirty         = ipt[ppn].dirty;
-    tlb[tlbCounter % 4].readOnly      = ipt[ppn].readOnly;
-
-    (void) interrupt->SetLevel(oldLevel); //restore interrupts
-}
-
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
     int rv=0; 	// the return value from a syscall
@@ -555,10 +441,9 @@ void ExceptionHandler(ExceptionType which) {
             }
             nameOfProcess[32] = '\0';
             OpenFile *filePointer = fileSystem->Open(nameOfProcess);
-
+            delete [] nameOfProcess;
             if (filePointer){ // check if pointer is not null
-              AddrSpace* as = new AddrSpace(nameOfProcess); // Create new addrespace for this executable file
-              delete [] nameOfProcess; //TODO: MOVE THIS DELETE AROUND< PLS
+              AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
               Thread* newThread = new Thread("ExecThread");
               newThread->space = as; //Allocate the space created to this thread's space
               processEntry = new ProcessEntry();
@@ -580,7 +465,6 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Exit:
             kernelLock->Acquire();
-            printf("-----------Exit Output: %d\n", machine->ReadRegister(4));
             //Checks for last process and last thread
             bool isLastProcessVar = isLastProcess();
             bool isLastExecutingThreadVar = isLastExecutingThread(currentThread);
@@ -671,8 +555,6 @@ void ExceptionHandler(ExceptionType which) {
 	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
 	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
 	return;
-    } else if(which == PageFaultException) {
-        HandlePageFault(machine->ReadRegister(BadVAddrReg));
     } else {
 cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<< " in " << currentThread->getName() << endl;
       interrupt->Halt();
