@@ -128,30 +128,54 @@ int serverCondCount = 0;
 // ++++++++++++++++++++++++++++ Validation ++++++++++++++++++++++++++++
 
 bool validateLockIndex(int lockIndex) {
+    if (lockIndex < 0 || lockIndex >= serverLockCount){ // check if index is in valid range
+      DEBUG('l',"    Lock::Lock number %d invalid, thread can't acquire-----------------------\n", lockIndex);
+      return false;
+    }
+    if (serverLocks[lockIndex].isDeleted == TRUE){ // check if lock is deleted
+  		DEBUG('l',"    Lock::Lock number %d already destroyed, thread can't acquire-----------------------\n", lockIndex);
+  		return false;
+  	}
     return true;
 }
 
 bool validateMonitorIndex(int monitorIndex) {
+    if (monitorIndex < 0 || monitorIndex >= serverMonCount){ // check if index is in valid range
+      DEBUG('l',"    Mon::Mon number %d invalid\n", monitorIndex);
+      return false;
+    }
+    if (serverMons[monitorIndex].isDeleted == TRUE){ // check if lock is deleted
+      DEBUG('l',"    Mon::Mon number %d already destroyed\n", monitorIndex);
+      return false;
+    }
     return true;
 }
 
 bool validateConditionIndex(int conditionIndex) {
+    if (conditionIndex < 0 || conditionIndex >= serverCondCount){ // check if index is in valid range
+      DEBUG('l',"    Cond::Cond number %d invalid\n", conditionIndex);
+      return false;
+    }
+    if (serverConds[conditionIndex].isDeleted == TRUE){ // check if lock is deleted
+      DEBUG('l',"    Cond::Cond number %d already destroyed\n", conditionIndex);
+      return false;
+    }
     return true;
 }
 
 // ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
 
-int CreateLock_server(string name, int appendNum, PacketHeader pktHdr, MailHeader mailHdr) {
+int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader mailHdr) {
     ServerThread lockOwner;
 
     serverLocks[serverLockCount].deleteFlag = FALSE;
     serverLocks[serverLockCount].isDeleted = FALSE;
-    serverLocks[serverLockCount].lockStatus = FREE;
+    serverLocks[serverLockCount].lockStatus = serverLocks[serverLockCount].FREE;
     serverLocks[serverLockCount].name = name;
     serverLocks[serverLockCount].lockOwner.machineId = pktHdr.from;
     serverLocks[serverLockCount].lockOwner.mailboxNum = mailHdr.from;
 
-    int currentLockIndex = ++serverLockCount;
+    int currentLockIndex = serverLockCount++;
 
     return currentLockIndex;
 }
@@ -172,10 +196,10 @@ void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
         return;
     }
 
-    if(serverLocks[lockIndex].lockStatus == FREE) //lock is available
+    if(serverLocks[lockIndex].lockStatus == serverLocks[lockIndex].FREE) //lock is available
     {
         //I can have the lock
-        serverLocks[lockIndex].lockStatus = BUSY; //make state BUSY
+        serverLocks[lockIndex].lockStatus = serverLocks[lockIndex].BUSY; //make state BUSY
         lockOwner = serverCurrentThread; //make myself the owner
     }
     else //lock is busy
@@ -215,7 +239,7 @@ void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
             interrupt->Halt();
         }
 
-        success = postOffice->Send(serverLocks[lockIndex].machineId, mailHdr, data);
+        success = postOffice->Send(serverLocks[lockIndex].lockOwner.machineId, mailHdr, data);
 
         if ( !success ) {
             printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
@@ -240,7 +264,7 @@ void DestroyLock_server(int lockIndex) {
 
 int CreateMonitor_server(string name, int appendNum) {
     int currentMonIndex = 0;
-    return currentMonIndex; 
+    return currentMonIndex;
 }
 
 void GetMonitor_server(int monitorIndex) {
@@ -265,7 +289,7 @@ void DestroyMonitor_server(int monitorIndex) {
 
 int CreateCondition_server(string name, int appendNum) {
     int currentCondIndex = 0;
-    return currentCondIndex; 
+    return currentCondIndex;
 }
 
 void Wait_server(int lockIndex, int conditionIndex) {
@@ -337,7 +361,7 @@ void Server(int farAddr) {
     // outMailHdr.to = 0; //mailbox 0 TODO: might need
     // outMailHdr.from = 0; //server 0 //ClientId is in Header From field
     outMailHdr.length = strlen(data) + 1;
-    string name;
+    char* name;
     // has to have a waitQueue of replies
     // -m 0
     while(true) {
