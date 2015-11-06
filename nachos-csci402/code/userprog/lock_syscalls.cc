@@ -4,8 +4,12 @@
 #include "custom_syscalls.h"
 #include "synchlist.h"
 #include "addrspace.h"
+#include "network.h"
+#include "post.h"
 #include <stdio.h>
 #include <iostream>
+#include <sstream>
+#include <string>
 
 #define BUFFER_SIZE 32
 
@@ -24,9 +28,7 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
 		return -1;
 	}
 	char* buffer = new char[size + 1]; //allocate new char array
-	char* empty = new char[size + 1];
 	buffer[size] = '\0'; //end the char array with a null character
-	empty[size] = '\0';
 
 	if (copyin(vaddr, size, buffer) == -1){
 		DEBUG('l',"%s"," COPYIN FAILED\n");
@@ -36,10 +38,33 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
 	}; //copy contents of the virtual addr (ReadRegister(4)) to the buffer
 
 	// set attributes of new lock
-	currentThread->space->userLocks[currentThread->space->lockCount].userLock = new Lock(buffer); // instantiate new lock
-	currentThread->space->userLocks[currentThread->space->lockCount].deleteFlag = FALSE; // indicate the lock is not to be deleted
-	currentThread->space->userLocks[currentThread->space->lockCount].isDeleted = FALSE; // indicate the lock is not in use
-	int currentLockIndex = currentThread->space->lockCount; // save the currentlockcount to be returned later
+    PacketHeader pktHdr;
+	MailHeader mailHdr;
+
+    mailHdr.to = 0;
+    mailHdr.from = 0;
+    pktHdr.to = 0;
+
+    stringstream ss;
+	ss << "L C ";
+	ss << buffer;
+    bool success = postOffice->Send(pktHdr, mailHdr, buffer);
+
+	if ( !success ) {
+		printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+		interrupt->Halt();
+	}
+    char inBuffer[64];
+    postOffice->Receive(0, &pktHdr, &mailHdr, inBuffer);
+
+    cout << inBuffer << endl;
+    int currentLockIndex = -1;
+    ss >> currentLockIndex;
+
+    if(currentLockIndex == -1) {
+        interrupt->Halt();
+    }
+
 	++(currentThread->space->lockCount); // increase lock count
 	DEBUG('a', "Lock has number %d and name %s\n", currentLockIndex, buffer);
 	DEBUG('l',"    Lock::Lock number: %d || name: %s created by %s\n", currentLockIndex, currentThread->space->userLocks[currentLockIndex].userLock->getName(), currentThread->getName());
