@@ -55,8 +55,8 @@ MailTest(int farAddr)
     bool success = postOffice->Send(outPktHdr, outMailHdr, data);
 
     if ( !success ) {
-      printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
-      interrupt->Halt();
+        printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+        interrupt->Halt();
     }
 
     // Wait for the first message from the other machine
@@ -72,8 +72,8 @@ MailTest(int farAddr)
     success = postOffice->Send(outPktHdr, outMailHdr, ack);
 
     if ( !success ) {
-      printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
-      interrupt->Halt();
+        printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+        interrupt->Halt();
     }
 
     // Wait for the ack from the other machine to the first message we sent.
@@ -101,7 +101,11 @@ struct ServerLock {
     char* name;
     List* waitQueue;
     ServerThread lockOwner;
+};
 
+struct ServerMon {
+    bool deleteFlag;
+    bool isDeleted;
 };
 
 struct ServerCond {
@@ -109,17 +113,189 @@ struct ServerCond {
     bool isDeleted;
 
     char* name;
-    ServerLock waitingLock;
+    int waitingLockIndex;
     List *waitQueue;
 };
 
 ServerLock serverLocks[MAX_MON_COUNT];
-// ServerMon serverMons[MAX_MON_COUNT];
+ServerMon serverMons[MAX_MON_COUNT];
 ServerCond serverConds[MAX_MON_COUNT];
 
 int serverLockCount = 0;
 int serverMonCount = 0;
 int serverCondCount = 0;
+
+// ++++++++++++++++++++++++++++ Validation ++++++++++++++++++++++++++++
+
+bool validateLockIndex(int lockIndex) {
+    return true;
+}
+
+bool validateMonitorIndex(int monitorIndex) {
+    return true;
+}
+
+bool validateConditionIndex(int conditionIndex) {
+    return true;
+}
+
+// ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
+
+int CreateLock_server(string name, int appendNum, PacketHeader pktHdr, MailHeader mailHdr) {
+    ServerThread lockOwner;
+
+    serverLocks[serverLockCount].deleteFlag = FALSE;
+    serverLocks[serverLockCount].isDeleted = FALSE;
+    serverLocks[serverLockCount].lockStatus = FREE;
+    serverLocks[serverLockCount].name = name;
+    serverLocks[serverLockCount].lockOwner.machineId = pktHdr.from;
+    serverLocks[serverLockCount].lockOwner.mailboxNum = mailHdr.from;
+
+    return currentLockIndex;
+}
+
+
+
+void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+
+    ServerThread serverCurrentThread;
+    serverCurrentThread.machineId = 0; // this is essentailly the server machineId
+    serverCurrentThread.mailboxNum = mailHdr.from; // this is the mailbox that the mail came from since it's equal to client mailbox
+
+    if(serverCurrentThread == serverLocks[lockIndex].lockOwner) //current thread is lock owner
+    {
+        return;
+    }
+
+    if(serverLocks[lockIndex].lockStatus == FREE) //lock is available
+    {
+        //I can have the lock
+        serverLocks[lockIndex].lockStatus = BUSY; //make state BUSY
+        lockOwner = serverCurrentThread; //make myself the owner
+    }
+    else //lock is busy
+    {
+        serverLocks[lockIndex].waitQueue->Append(serverCurrentThread); //Put current thread on the lock’s waitQueue
+    }
+}
+
+void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+
+    ServerThread serverCurrentThread;
+    serverCurrentThread.machineId = 0;
+    serverCurrentThread.mailboxNum = mailHdr.from;
+
+    if(serverCurrentThread != serverLocks[lockIndex].lockOwner) //current thread is not lock owner
+    {
+        return;
+    }
+
+    if(!serverLocks[lockIndex].waitQueue->IsEmpty()) //lock waitQueue is not empty
+    {
+        ServerThread thread = (ServerThread) serverLocks[lockIndex].waitQueue->Remove(); //remove 1 waiting thread
+        serverLocks[lockIndex].lockOwner = thread; //make them lock owner
+        char* data = "You got the lock!";
+        bool success = postOffice->Send(pktHdr, mailHdr, data);
+
+        if ( !success ) {
+            printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+            interrupt->Halt();
+        }
+
+        success = postOffice->Send(serverLocks[lockIndex].machineId, mailHdr, data);
+
+        if ( !success ) {
+            printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+            interrupt->Halt();
+        }
+    }
+    else
+    {
+        serverLocks[lockIndex].lockStatus = FREE; //make lock available
+        serverLocks[lockIndex].lockOwner.machineId = -1; //unset ownership
+        serverLocks[lockIndex].lockOwner.mailboxNum = -1; //unset ownership
+    }
+}
+
+void DestroyLock_server(int lockIndex) {
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+}
+
+// ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
+
+int CreateMonitor_server(string name, int appendNum) {
+    int currentMonIndex = 0;
+    return currentMonIndex; 
+}
+
+void GetMonitor_server(int monitorIndex) {
+    if(!validateMonitorIndex(monitorIndex)) {
+        return;
+    }
+}
+
+void SetMonitor_server(int monitorIndex) {
+    if(!validateMonitorIndex(monitorIndex)) {
+        return;
+    }
+}
+
+void DestroyMonitor_server(int monitorIndex) {
+    if(!validateMonitorIndex(monitorIndex)) {
+        return;
+    }
+}
+
+// ++++++++++++++++++++++++++++ CVs ++++++++++++++++++++++++++++
+
+int CreateCondition_server(string name, int appendNum) {
+    int currentCondIndex = 0;
+    return currentCondIndex; 
+}
+
+void Wait_server(int lockIndex, int conditionIndex) {
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+    if(!validateConditionIndex(conditionIndex)) {
+        return;
+    }
+
+}
+
+void Signal_server(int lockIndex, int conditionIndex) {
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+    if(!validateConditionIndex(conditionIndex)) {
+        return;
+    }
+
+}
+
+void Broadcast_server(int lockIndex, int conditionIndex) {
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+    if(!validateConditionIndex(conditionIndex)) {
+        return;
+    }
+
+}
+
+void DestroyCondition_server(int conditionIndex) {
+    if(!validateConditionIndex(conditionIndex)) {
+        return;
+    }
+}
 
 // [SysCode1|SysCode2|results|entityId1|entityId2|entityId3]
 
@@ -142,25 +318,25 @@ int serverCondCount = 0;
 void Server(int farAddr) {
     char sysCode1, sysCode2;
 
-    PacketHeader outPktHdr, inPktHdr; // Pkt is hardware level // just need to know the machine->Id at command line
-    MailHeader outMailHdr, inMailHdr; // Mail
+    PacketHeader pktHdr; // Pkt is hardware level // just need to know the machine->Id at command line
+    MailHeader mailHdr; // Mail
     char buffer[MaxMailSize];
     char * data; //TODO update this
     stringstream ss;
 
-    outPktHdr.to = farAddr;
-    // outPktHdr.to = inPktHdr.from;
+    pktHdr.to = farAddr;
+    // pktHdr.to = inPktHdr.from;
     // outMailHdr.to = inMailHdr.from;
-    //outMailHdr.to = 0; //mailbox 0 TODO: might need
-    //outMailHdr.from = 0; //server 0 //ClientId is in Header From field
+    // outMailHdr.to = 0; //mailbox 0 TODO: might need
+    // outMailHdr.from = 0; //server 0 //ClientId is in Header From field
     outMailHdr.length = strlen(data) + 1;
     string name;
     // has to have a waitQueue of replies
     // -m 0
     while(true) {
         //Recieve the message
-        postOffice->Receive(0, &inPktHdr, &inMailHdr, buffer);
-        printf("Got \"%s\" from %d, box %d\n",buffer,inPktHdr.from,inMailHdr.from);
+        postOffice->Receive(0, &pktHdr, &mailHdr, buffer);
+        printf("Got \"%s\" from %d, box %d\n",buffer,pktHdr.from,mailHdr.from);
         fflush(stdout);
         //Parse the message
         int entityId = -1;
@@ -179,14 +355,14 @@ void Server(int farAddr) {
             case 'L':
                 switch(sysCode2) {
                     case 'C':
-                        entityId = CreateLock_server(name, serverLockCount);
+                        entityId = CreateLock_server(name, serverLockCount, pktHdr, mailHdr);
                     break;
                     case 'A':
                         // only send reply when they can Acquire
-                        Acquire_server(entityIndex1);
+                        Acquire_server(entityIndex1, pktHdr, mailHdr);
                     break;
                     case 'R':
-                        Release_server(entityIndex1);
+                        Release_server(entityIndex1, pktHdr, mailHdr);
                     break;
                     case 'D':
                         DestroyLock_server(entityIndex1);
@@ -196,7 +372,7 @@ void Server(int farAddr) {
             case 'M':
                 switch(sysCode2) {
                     case 'C':
-                        entityId = CreateMonitor_server(name, serverMonitorCount);
+                        entityId = CreateMonitor_server(name, serverMonCount);
                     break;
                     case 'G':
                         GetMonitor_server(entityIndex1);
@@ -212,7 +388,7 @@ void Server(int farAddr) {
             case 'C':
                 switch(sysCode2) {
                     case 'C':
-                        entityId = CreateCondition_server(name, serverConditionCount);
+                        entityId = CreateCondition_server(name, serverCondCount);
                     break;
                     case 'W':
                         ss >> entityIndex2;

@@ -256,15 +256,15 @@ return; //TODO: what behaviour when file is invalid
 
 AddrSpace::~AddrSpace()
 {
-  for (unsigned int i = 0 ; i < numPages ; i++){
-    if(pageTable[i].physicalPage != -1){
-      bitmap->Clear(pageTable[i].physicalPage);
+  // for (int i = 0 ; i < numPages ; i++){
+  //   if(pageTable[i].physicalPage != -1){
+  //     bitmap->Clear(pageTable[i].physicalPage);
 
-    }
-  }
-  delete pageTable;
-  delete [] userLocks;
-  delete [] userConds;
+  //   }
+  // }
+  // delete pageTable;
+  // delete [] userLocks;
+  // delete [] userConds;
 }
 
 //----------------------------------------------------------------------
