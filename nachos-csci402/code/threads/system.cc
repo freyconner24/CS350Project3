@@ -156,7 +156,7 @@ Initialize(int argc, char **argv)
     processTable = new ProcessTable();
     tlbCounter = -1;
     swapfile = fileSystem->Open("swapfile.txt"); //TODO: this file would be in vm directory for now, make it a global consant and decide where to put the actual file
-    swapfileBitmap = new BitMap(1000); //TODO: decide on an arbitrarily large number and make it a #define
+    swapfileBitmap = new BitMap(32000); //TODO: decide on an arbitrarily large number and make it a #define
     swapQueue = new List();
     }
 

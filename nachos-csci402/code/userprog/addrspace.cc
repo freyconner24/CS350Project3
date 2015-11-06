@@ -310,11 +310,10 @@ AddrSpace::InitRegisters()
 void AddrSpace::SaveState()
 {
     for(int i = 0; i < 4; ++i) {
-        machine->tlb[i].valid = FALSE;
-        if(machine->tlb[i].dirty){
-          pageTable[machine->tlb[i].virtualPage].dirty = FALSE;
-          ipt[machine->tlb[i].physicalPage].dirty = FALSE;
+        if(machine->tlb[i].valid){
+          ipt[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
         }
+        machine->tlb[i].valid = FALSE;
     }
 
 }
