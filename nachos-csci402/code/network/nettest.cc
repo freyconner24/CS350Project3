@@ -92,6 +92,18 @@ struct ServerThread{
   int mailboxNum;
 };
 
+bool operator==(const ServerThread& t1, const ServerThread& t2) {
+    if(t1.machineId != t2.machineId) {
+        return false;
+    }
+
+    if(t1.mailboxNum != t2.mailboxNum) {
+        return false;
+    }
+
+    return true;
+}
+
 struct ServerLock {
     bool deleteFlag;
     bool isDeleted;
@@ -200,11 +212,11 @@ void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     {
         //I can have the lock
         serverLocks[lockIndex].lockStatus = serverLocks[lockIndex].BUSY; //make state BUSY
-        lockOwner = serverCurrentThread; //make myself the owner
+        serverLocks[lockIndex].lockOwner = serverCurrentThread; //make myself the owner
     }
     else //lock is busy
     {
-        serverLocks[lockIndex].waitQueue->Append(serverCurrentThread); //Put current thread on the lock’s waitQueue
+        serverLocks[lockIndex].waitQueue->Append(&serverCurrentThread); //Put current thread on the lock’s waitQueue
     }
 }
 
@@ -217,14 +229,14 @@ void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     serverCurrentThread.machineId = 0;
     serverCurrentThread.mailboxNum = mailHdr.from;
 
-    if(serverCurrentThread != serverLocks[lockIndex].lockOwner) //current thread is not lock owner
+    if(!(serverCurrentThread == serverLocks[lockIndex].lockOwner)) //current thread is not lock owner
     {
         return;
     }
 
     if(!serverLocks[lockIndex].waitQueue->IsEmpty()) //lock waitQueue is not empty
     {
-        ServerThread thread = (ServerThread) serverLocks[lockIndex].waitQueue->Remove(); //remove 1 waiting thread
+        ServerThread thread = *(ServerThread*) (serverLocks[lockIndex].waitQueue->Remove()); //remove 1 waiting thread
         serverLocks[lockIndex].lockOwner = thread; //make them lock owner
         char* data = "You got the lock!";
         int clientId = pktHdr.from;
@@ -235,20 +247,22 @@ void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
         bool success = postOffice->Send(pktHdr, mailHdr, data);
 
         if ( !success ) {
-            printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+            printf("Release::The first postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
             interrupt->Halt();
         }
 
-        success = postOffice->Send(serverLocks[lockIndex].lockOwner.machineId, mailHdr, data);
+        pktHdr.to = serverLocks[lockIndex].lockOwner.machineId;
+        mailHdr.to = serverLocks[lockIndex].lockOwner.mailboxNum;
+        success = postOffice->Send(pktHdr, mailHdr, data);
 
         if ( !success ) {
-            printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+            printf("Release::The second postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
             interrupt->Halt();
         }
     }
     else
     {
-        serverLocks[lockIndex].lockStatus = FREE; //make lock available
+        serverLocks[lockIndex].lockStatus = serverLocks[lockIndex].FREE; //make lock available
         serverLocks[lockIndex].lockOwner.machineId = -1; //unset ownership
         serverLocks[lockIndex].lockOwner.mailboxNum = -1; //unset ownership
     }
@@ -360,7 +374,7 @@ void Server(int farAddr) {
     // outMailHdr.to = inMailHdr.from;
     // outMailHdr.to = 0; //mailbox 0 TODO: might need
     // outMailHdr.from = 0; //server 0 //ClientId is in Header From field
-    outMailHdr.length = strlen(data) + 1;
+    mailHdr.length = strlen(data) + 1;
     char* name;
     // has to have a waitQueue of replies
     // -m 0
