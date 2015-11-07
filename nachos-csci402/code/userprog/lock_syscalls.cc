@@ -24,7 +24,7 @@ void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, c
 	if(serverCode[2] == 'C') { // it is a Create and needs a name
 		ss << name;
 	} else {
-		ss << entityIndex1 << entityIndex2;
+		ss << entityIndex1 << ' ' << entityIndex2;
 	}
 
 	string str = ss.str();
@@ -68,7 +68,7 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
 	}; //copy contents of the virtual addr (ReadRegister(4)) to the name
 
 	// set attributes of new lock
-    
+
     PacketHeader pktHdr;
 	MailHeader mailHdr;
 
@@ -77,7 +77,7 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
     string receivedString = getFromServer(pktHdr, mailHdr);
     stringstream ss;
     ss << receivedString;
-    
+
     int currentLockIndex = -1;
     ss >> currentLockIndex;
 
@@ -85,7 +85,7 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
         cout << "Client::currentLockIndex == -1" << endl;
         interrupt->Halt();
     }
-	
+
 	currentThread->space->lockCount += 1;
     cout << "currentLockIndex: " << currentLockIndex << endl;
 	//DEBUG('a', "Lock has number %d and name %s\n", currentLockIndex, buffer);
@@ -99,12 +99,12 @@ void Acquire_sys(int index) {
 
 	//DEBUG('a', "Lock  number %d and name %s\n", index, currentThread->space->userLocks[index].userLock->getName());
 	//DEBUG('l',"    Lock::Lock number: %d || name:  %s acquired by %s\n", index, currentThread->space->userLocks[index].userLock->getName(), currentThread->getName());
-	
+
 	cout << "+++++++++++++++++++++" << endl;
 	PacketHeader pktHdr;
 	MailHeader mailHdr;
 
-    sendToServer(pktHdr, mailHdr, "L A ", "", index, -1);
+  sendToServer(pktHdr, mailHdr, "L A ", "", index, -1);
 
 	string receivedString = getFromServer(pktHdr, mailHdr);
 

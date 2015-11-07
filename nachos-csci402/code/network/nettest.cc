@@ -236,6 +236,7 @@ int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader
 
 
 void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
+    cout << lockIndex << " " << validateLockIndex(lockIndex) <<endl;
     if(!validateLockIndex(lockIndex)) {
         return;
     }
@@ -244,7 +245,7 @@ void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     serverCurrentThread.machineId = pktHdr.from; // this is essentailly the server machineId
     serverCurrentThread.mailboxNum = mailHdr.from; // this is the mailbox that the mail came from since it's equal to client mailbox
 
-    if(serverCurrentThread == serverLocks[lockIndex].lockOwner) //current thread is lock owner
+    if(serverLocks[lockIndex].lockStatus == serverLocks[lockIndex].BUSY && serverCurrentThread == serverLocks[lockIndex].lockOwner) //current thread is lock owner
     {
         return;
     }
@@ -259,7 +260,7 @@ void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
         serverLocks[lockIndex].lockOwner.mailboxNum;
 
         sendMessageToClient("You got the lock!", pktHdr, mailHdr);
-        
+
     }
     else //lock is busy
     {
@@ -285,7 +286,7 @@ void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     {
         ServerThread thread = *(ServerThread*) (serverLocks[lockIndex].waitQueue->Remove()); //remove 1 waiting thread
         serverLocks[lockIndex].lockOwner = thread; //make them lock owner
-        
+
         sendMessageToClient("You got the lock!", pktHdr, mailHdr);
 
         char* data = "You got the lock!";
