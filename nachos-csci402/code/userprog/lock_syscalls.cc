@@ -48,27 +48,45 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
     stringstream ss;
 	ss << "L C ";
 	ss << buffer;
-    bool success = postOffice->Send(pktHdr, mailHdr, buffer);
+	string str = ss.str();
+	char sendBuffer[64];
+	for(int i = 0; i < str.size(); ++i) {
+		cout << "[" << i << "]: " << str.at(i) << endl;
+		sendBuffer[i] = str.at(i);
+	}
+	sendBuffer[str.size()] = '\0';
+	cout << "Client::This is the init buffer: " << sendBuffer << endl;
+    bool success = postOffice->Send(pktHdr, mailHdr, sendBuffer);
 
 	if ( !success ) {
-		printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+		printf("Client::The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
 		interrupt->Halt();
 	}
     char inBuffer[64];
     postOffice->Receive(0, &pktHdr, &mailHdr, inBuffer);
 
-    cout << inBuffer << endl;
+    cout << "inBuffer: " << inBuffer << endl;
+    ss.str("");
+    ss.clear();
+    ss << inBuffer;
+    cout << ss.str() << endl;
     int currentLockIndex = -1;
     ss >> currentLockIndex;
 
+    cout << "currentLockIndex: " << currentLockIndex << endl;
+
     if(currentLockIndex == -1) {
+        cout << "Client::currentLockIndex == -1" << endl;
         interrupt->Halt();
     }
 
+    cout << currentLockIndex << endl;
 	++(currentThread->space->lockCount); // increase lock count
-	DEBUG('a', "Lock has number %d and name %s\n", currentLockIndex, buffer);
-	DEBUG('l',"    Lock::Lock number: %d || name: %s created by %s\n", currentLockIndex, currentThread->space->userLocks[currentLockIndex].userLock->getName(), currentThread->getName());
+	printf("conner1");
+	//DEBUG('a', "Lock has number %d and name %s\n", currentLockIndex, buffer);
+	//DEBUG('l',"    Lock::Lock number: %d || name: %s created by %s\n", currentLockIndex, currentThread->space->userLocks[currentLockIndex].userLock->getName(), currentThread->getName());
 	currentThread->space->locksLock->Release(); //release kernel lock
+	printf("conner2");
 	return currentLockIndex;
 }
 

@@ -370,7 +370,7 @@ void Server() {
     char buffer[MaxMailSize];
     stringstream ss;
 
-    char* name;
+    char name[60];
 
     while(true) {
         //Recieve the message
@@ -384,22 +384,29 @@ void Server() {
         int entityIndex1 = -1;
         int entityIndex2 = -1;
         ss << buffer;
-
+        cout << "Server::Buffer in server: " << buffer << endl;
         ss >> sysCode1 >> sysCode2;
+        cout << "Server::sysCode1 >> sysCode2: " << sysCode1 << " " << sysCode2 << endl;
         if(sysCode2 == 'C') {
+            cout << "Server::got to name: ";
             ss >> name;
+            cout << name << endl;
         } else {
+            cout << "fuck: ";
             ss >> entityIndex1;
         }
-
+        cout << "Server::got past if block" << endl;
         switch(sysCode1) {
             case 'L':
                 switch(sysCode2) {
                     case 'C':
+                        cout << "Got to CreateLock_server" << endl;
                         ss.str("");
+                        ss.clear();
                         entityId = CreateLock_server(name, serverLockCount, pktHdr, mailHdr);
                         ss << entityId;
-                        ss << " CreateLock_server";
+                        cout << "CreateLock_server::entityId: " << entityId << endl;
+                        cout << "CreateLock_server::ss.str(): " << ss.str() << endl;
                     break;
                     case 'A':
                         // only send reply when they can Acquire
@@ -481,10 +488,13 @@ void Server() {
 
         //Process the message
         const char* tempChar = ss.str().c_str();
+        cout << "tempChar: " << ss.str() << endl;
         char replyBuffer[MaxMailSize];
         for(unsigned int i = 0; i < strlen(tempChar); ++i) {
             replyBuffer[i] = tempChar[i];
         }
+
+        replyBuffer[strlen(tempChar)] = '\0';
 
         //Send a reply (maybe)
         int clientId = pktHdr.from;
