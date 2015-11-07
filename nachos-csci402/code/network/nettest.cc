@@ -178,8 +178,6 @@ bool validateConditionIndex(int conditionIndex) {
 // ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
 
 int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader mailHdr) {
-    ServerThread lockOwner;
-
     serverLocks[serverLockCount].deleteFlag = FALSE;
     serverLocks[serverLockCount].isDeleted = FALSE;
     serverLocks[serverLockCount].lockStatus = serverLocks[serverLockCount].FREE;
@@ -187,12 +185,11 @@ int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader
     serverLocks[serverLockCount].lockOwner.machineId = pktHdr.from;
     serverLocks[serverLockCount].lockOwner.mailboxNum = mailHdr.from;
 
-    int currentLockIndex = serverLockCount++;
+    int currentLockIndex = serverLockCount;
+    ++serverLockCount;
 
     return currentLockIndex;
 }
-
-
 
 void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     if(!validateLockIndex(lockIndex)) {
@@ -242,7 +239,9 @@ void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
         int clientId = pktHdr.from;
         pktHdr.from = 0;
         pktHdr.to = clientId;
+        int clientMailbox = mailHdr.to;
         mailHdr.to = mailHdr.from;
+        mailHdr.from = clientMailbox;
 
         bool success = postOffice->Send(pktHdr, mailHdr, data);
 
@@ -360,27 +359,21 @@ void DestroyCondition_server(int conditionIndex) {
 // Broadcast:        "C B 21 36"
 // DestroyCondition: "C D 21"
 
-void Server(int farAddr) {
+void Server() {
+    cout << "Server()" << endl;
     char sysCode1, sysCode2;
 
     PacketHeader pktHdr; // Pkt is hardware level // just need to know the machine->Id at command line
     MailHeader mailHdr; // Mail
     char buffer[MaxMailSize];
-    char * data; //TODO update this
     stringstream ss;
 
-    pktHdr.to = farAddr;
-    // pktHdr.to = inPktHdr.from;
-    // outMailHdr.to = inMailHdr.from;
-    // outMailHdr.to = 0; //mailbox 0 TODO: might need
-    // outMailHdr.from = 0; //server 0 //ClientId is in Header From field
-    mailHdr.length = strlen(data) + 1;
     char* name;
-    // has to have a waitQueue of replies
-    // -m 0
     while(true) {
         //Recieve the message
+        cout << "Receive()" << endl;
         postOffice->Receive(0, &pktHdr, &mailHdr, buffer);
+        cout << "Received()" << endl;
         printf("Got \"%s\" from %d, box %d\n",buffer,pktHdr.from,mailHdr.from);
         fflush(stdout);
         //Parse the message
@@ -400,61 +393,107 @@ void Server(int farAddr) {
             case 'L':
                 switch(sysCode2) {
                     case 'C':
+                        ss.str("");
                         entityId = CreateLock_server(name, serverLockCount, pktHdr, mailHdr);
+                        ss << entityId;
+                        ss << " CreateLock_server";
                     break;
                     case 'A':
                         // only send reply when they can Acquire
                         Acquire_server(entityIndex1, pktHdr, mailHdr);
+                        ss.str("");
+                        ss << "Acquire_server";
                     break;
                     case 'R':
                         Release_server(entityIndex1, pktHdr, mailHdr);
+                        ss.str("");
+                        ss << "Release_server";
                     break;
                     case 'D':
                         DestroyLock_server(entityIndex1);
+                        ss.str("");
+                        ss << "DestroyLock_server";
                     break;
                 }
             break;
             case 'M':
                 switch(sysCode2) {
                     case 'C':
+                        ss.str("");
                         entityId = CreateMonitor_server(name, serverMonCount);
+                        ss << entityId;
+                        ss << " CreateMonitor_server";
                     break;
                     case 'G':
                         GetMonitor_server(entityIndex1);
+                        ss.str("");
+                        ss << "GetMonitor_server";
                     break;
                     case 'S':
                         SetMonitor_server(entityIndex1);
+                        ss.str("");
+                        ss << "SetMonitor_server";
                     break;
                     case 'D':
                         DestroyMonitor_server(entityIndex1);
+                        ss.str("");
+                        ss << "DestroyMonitor_server";
                     break;
                 }
             break;
             case 'C':
                 switch(sysCode2) {
                     case 'C':
+                        ss.str("");
                         entityId = CreateCondition_server(name, serverCondCount);
+                        ss << entityId;
+                        ss << " CreateCondition_server";
                     break;
                     case 'W':
                         ss >> entityIndex2;
                         Wait_server(entityIndex1, entityIndex2); //lock then CV
+                        ss.str("");
+                        ss << "Wait_server";
                     break;
                     case 'S':
                         ss >> entityIndex2;
                         Signal_server(entityIndex1, entityIndex2); //lock then CV
+                        ss.str("");
+                        ss << "Signal_server";
                     break;
                     case 'B':
                         ss >> entityIndex2;
                         Broadcast_server(entityIndex1, entityIndex2); //lock then CV
+                        ss.str("");
+                        ss << "Broadcast_server";
                     break;
                     case 'D':
                         DestroyCondition_server(entityIndex2);
+                        ss.str("");
+                        ss << "DestroyCondition_server";
                     break;
                 }
             break;
         }
 
         //Process the message
+        const char* tempChar = ss.str().c_str();
+        char replyBuffer[MaxMailSize];
+        for(unsigned int i = 0; i < strlen(tempChar); ++i) {
+            replyBuffer[i] = tempChar[i];
+        }
         //Send a reply (maybe)
+        int clientId = pktHdr.from;
+        pktHdr.to = clientId;
+        int clientMailbox = mailHdr.to;
+        mailHdr.to = mailHdr.from;
+        mailHdr.from = clientMailbox;
+
+        bool success = postOffice->Send(pktHdr, mailHdr, replyBuffer);
+
+        if ( !success ) {
+            printf("The postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+            interrupt->Halt();
+        }
     }
 }
