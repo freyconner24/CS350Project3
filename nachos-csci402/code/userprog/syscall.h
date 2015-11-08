@@ -43,6 +43,10 @@
 #define SC_PrintString	22
 #define SC_PrintNum	23
 #define SC_PrintNl	24
+#define SC_CreateMonitor	25
+#define SC_GetMonitor	26
+#define SC_SetMonitor	27
+#define SC_DestroyMonitor	28
 
 #define MAXFILENAME 256
 
@@ -152,15 +156,20 @@ void PrintNum(int num);
 void PrintNl();
 
 int CreateLock(char* name, int size, int appendNum);
-void DestroyLock(int destroyValue);
 void Acquire(int lockNumber);
 void Release(int lockNumber);
+void DestroyLock(int destroyValue);
+
+int CreateMonitor(char* name, int size, int appendNum);
+void GetMonitor(int monitorNumber);
+void SetMonitor(int monitorNumber);
+void DestroyMonitor(int monitorNumber);
 
 int CreateCondition(char* name, int size, int appendNum);
-int DestroyCondition(int destroyValue);
-int Signal(int lockNumber, int conditionNumber);
-int Wait(int lockNumber, int conditionNumber);
-int Broadcast(int lockNumber, int conditionNumber);
+void Signal(int lockNumber, int conditionNumber);
+void Wait(int lockNumber, int conditionNumber);
+void Broadcast(int lockNumber, int conditionNumber);
+void DestroyCondition(int destroyValue);
 
 #endif /* IN_ASM */
 

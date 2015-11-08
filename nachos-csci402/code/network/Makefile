@@ -2573,7 +2573,9 @@ lock_syscalls.o: ../userprog/lock_syscalls.cc ../threads/copyright.h \
   ../filesys/filesys.h ../network/post.h ../threads/copyright.h \
   ../machine/network.h ../threads/synchlist.h ../userprog/syscall.h \
   ../userprog/custom_syscalls.h ../threads/synchlist.h \
-  ../userprog/addrspace.h
+  ../userprog/addrspace.h ../machine/network.h ../network/post.h \
+  /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/../../../../include/c++/3.4.3/sstream \
+  /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/../../../../include/c++/3.4.3/bits/sstream.tcc
 nettest.o: ../network/nettest.cc ../threads/copyright.h \
   ../threads/system.h ../threads/copyright.h ../threads/utility.h \
   ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \

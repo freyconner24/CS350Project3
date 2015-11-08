@@ -5,12 +5,21 @@
 
 enum UpadateState {SLEEP, AWAKE, FINISH};
 
+void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, char name[], int entityIndex1, int entityIndex2);
+string getFromServer(PacketHeader &pktHdr, MailHeader &mailHdr);
+string sendAndRecieveMessage(char* sysCode, char* name, int entityIndex1, int entityIndex2);
+
 void updateProcessThreadCounts(AddrSpace* addrSpace, UpadateState updateState);
 
 int CreateLock_sys(int vaddr, int size, int appendNum);
 void Acquire_sys(int lockIndex);
 void Release_sys(int lockIndex);
 void DestroyLock_sys(int destroyValue);
+
+int CreateMonitor_sys(int vaddr, int size, int appendNum);
+void GetMonitor_sys(int monitorIndex);
+void SetMonitor_sys(int monitorIndex);
+void DestroyMonitor_sys(int monitorIndex);
 
 int CreateCondition_sys(int vaddr, int size, int appendNum);
 void Wait_sys(int lockIndex, int conditionIndex);

@@ -38,8 +38,6 @@
 
 using namespace std;
 
-int GLOBALCOUNT = 0;
-
 int copyin(unsigned int vaddr, int len, char *buf) {
     // Copy len bytes from the current thread's virtual address vaddr.
     // Return the number of bytes so read, or -1 if an error occors.
@@ -364,13 +362,13 @@ int handleMemoryFull(){
     ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
     // if(/*something that indicates FIFO replacement*/){ //TODO: FIFO or random replacement
     //}else if(/*something that indicates random replacement*/){
-    
+
     int pageToBoot;
     if(runWithFIFO){
         pageToBoot = (int)swapQueue->Remove();
         cout << "LE FIFE Booting FIFO page number: " << pageToBoot << endl;
     }else{
-        pageToBoot = rand () % NumPhysPages;    
+        pageToBoot = rand () % NumPhysPages;
         cout << "LE FIFE Booting RAND page number: " << pageToBoot << endl;
     }
 
@@ -452,7 +450,7 @@ void HandlePageFault(int virtualAddress) {
     TranslationEntry* tlb = machine->tlb;
 
     int ppn = -1;
-    
+
     IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
 
     for(int i = 0; i < NumPhysPages; ++i) {
@@ -460,8 +458,8 @@ void HandlePageFault(int virtualAddress) {
         //cout << "ipt[i].virtualPage == virtualPage: " << ipt[i].virtualPage << " == " << virtualPage << endl;
         //cout << "ipt[i].spaceOwner == currentThread->space: " << ipt[i].spaceOwner << " == " << currentThread->space << endl;
         //cout << "ipt[i].valid: " << ipt[i].valid << endl;
-        if(ipt[i].virtualPage == virtualPage && 
-            ipt[i].spaceOwner == currentThread->space && 
+        if(ipt[i].virtualPage == virtualPage &&
+            ipt[i].spaceOwner == currentThread->space &&
             ipt[i].valid){
             ppn = i;
             // cout << "Got here 1 || ppn: " << ppn << endl;
@@ -472,13 +470,13 @@ void HandlePageFault(int virtualAddress) {
         //cout << "Got here 1.1" << endl
         ppn = handleIPTMiss( virtualPage );
     }
-    
+
     //cout << "Got here 1.2" << endl;
 
     if(tlb[tlbCounter % 4].valid) {//TODO: check index
         ipt[tlb[tlbCounter % 4].physicalPage].dirty = tlb[tlbCounter % 4].dirty;
     }
-   
+
     tlb[tlbCounter % 4].virtualPage   = ipt[ppn].virtualPage;
     tlb[tlbCounter % 4].physicalPage  = ipt[ppn].physicalPage;
     tlb[tlbCounter % 4].valid         = ipt[ppn].valid;
@@ -575,10 +573,9 @@ void ExceptionHandler(ExceptionType which) {
             }
             nameOfProcess[32] = '\0';
             OpenFile *filePointer = fileSystem->Open(nameOfProcess);
-
+            delete [] nameOfProcess;
             if (filePointer){ // check if pointer is not null
-              AddrSpace* as = new AddrSpace(nameOfProcess); // Create new addrespace for this executable file
-              delete [] nameOfProcess; //TODO: MOVE THIS DELETE AROUND< PLS
+              AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
               Thread* newThread = new Thread("ExecThread");
               newThread->space = as; //Allocate the space created to this thread's space
               processEntry = new ProcessEntry();
@@ -600,7 +597,6 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Exit:
             kernelLock->Acquire();
-            printf("-----------Exit Output: %d\n", machine->ReadRegister(4));
             //Checks for last process and last thread
             bool isLastProcessVar = isLastProcess();
             bool isLastExecutingThreadVar = isLastExecutingThread(currentThread);
@@ -641,6 +637,24 @@ void ExceptionHandler(ExceptionType which) {
         case SC_DestroyLock:
             DEBUG('a', "DestroyLock syscall.\n");
             DestroyLock_sys(machine->ReadRegister(4));
+            break;
+        case SC_CreateMonitor:
+            DEBUG('a', "CreateMonitor syscall.\n");
+            rv = CreateMonitor_sys(machine->ReadRegister(4),
+                                machine->ReadRegister(5),
+                                machine->ReadRegister(6));
+            break;
+        case SC_GetMonitor:
+            DEBUG('a', "GetMonitor syscall.\n");
+            GetMonitor_sys(machine->ReadRegister(4));
+            break;
+        case SC_SetMonitor:
+            DEBUG('a', "SetMonitor syscall.\n");
+            SetMonitor_sys(machine->ReadRegister(4));
+            break;
+        case SC_DestroyMonitor:
+            DEBUG('a', "DestroyMonitor syscall.\n");
+            DestroyMonitor_sys(machine->ReadRegister(4));
             break;
         case SC_CreateCondition:
             DEBUG('a', "CreateCondition syscall.\n");
@@ -691,8 +705,6 @@ void ExceptionHandler(ExceptionType which) {
 	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
 	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
 	return;
-    } else if(which == PageFaultException) {
-        HandlePageFault(machine->ReadRegister(BadVAddrReg));
     } else {
 cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<< " in " << currentThread->getName() << endl;
       interrupt->Halt();

@@ -117,7 +117,7 @@ SwapHeader (NoffHeader *noffH)
 //      constructed set to false.
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(char *filename) : fileTable(MaxOpenFiles) {
+AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
   pageTableLock = new Lock("PageTableLock");
   pageTableLock->Acquire();
   lockCount = 0;
@@ -133,15 +133,6 @@ AddrSpace::AddrSpace(char *filename) : fileTable(MaxOpenFiles) {
     fileTable.Put(0);
     fileTable.Put(0);
 
-//Saving exectuable to addrspace
-executable = fileSystem->Open(filename);
-if (executable == NULL) {
-printf("Unable to open file %s\n", filename);
-return; //TODO: what behaviour when file is invalid
-}
-
-
-
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) &&
 		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
@@ -149,20 +140,12 @@ return; //TODO: what behaviour when file is invalid
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
-      numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
-
-    // size = noffH.code.size + noffH.initData.size {
-    //    noffH.uninitData.size ;
-    //   numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
-    // /
-    // else{
-    //   /
-    // }}/ we need to increase the size
+    numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
+    // we need to increase the size
 		// to leave room for the stack
     //size = numPages * PageSize;
 
-    //TODO: delete asssert? executable numPages are very likely to be larger than NumPhysPages (32) for project 3
-    //ASSERT(numPages <= NumPhysPages);		// check we're not trying
+    ASSERT(numPages <= NumPhysPages);		// check we're not trying
 						// to run anything too big --
 						// at least until we have
 						// virtual memory
@@ -171,53 +154,35 @@ return; //TODO: what behaviour when file is invalid
 					numPages, size);
     int tempIndex = 0;
 // first, set up the translation
-   pageTableLock->Acquire();
-    pageTable = new ExtendedTranslationEntry[numPages]; //TODO: ?? Is NumPhysPages correct size?????????????
-
+  //  pageTableLock->Acquire();
+    pageTable = new TranslationEntry[numPages];
     processCount++;
     processId = processCount;
 
     StackTopForMain =  divRoundUp(size, PageSize);
 
-
-    printf("AddrSpace::numPages: %d\n", numPages);
     for (i = 0; i < numPages; i++) {
         //cout << "AddrSpace::numPage for(...): " << i << endl;
-        // tempIndex = bitmap->Find();
-        // if (tempIndex == -1){
-        //     DEBUG('g', "PAGETABLE TOO BIG");
-        //     break;
-        // }
+        tempIndex = bitmap->Find();
+        if (tempIndex == -1){
+            DEBUG('g', "PAGETABLE TOO BIG");
+            break;
+        }
     	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-    	//pageTable[i].physicalPage = tempIndex;
-    	pageTable[i].valid = FALSE;
+    	pageTable[i].physicalPage = tempIndex;
+    	pageTable[i].valid = TRUE;
     	pageTable[i].use = FALSE;
     	pageTable[i].dirty = FALSE;
     	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on
-      pageTable[i].byteOffset = 40 + pageTable[i].virtualPage * PageSize;
-      if(i < divRoundUp(noffH.code.size, PageSize) + divRoundUp(noffH.initData.size, PageSize)) {
-        cout << "-------if" << endl;
-        pageTable[i].diskLocation = EXECUTABLE;
-      }else{
-        cout << "-------else" << endl;
-        pageTable[i].diskLocation = NEITHER;
-      }
-      		// a separate page, we could set its
+					// a separate page, we could set its
 					// pages to be read-only
-      // ipt[tempIndex].virtualPage = i;	// for now, virtual page # = phys page #
-    	// ipt[tempIndex].physicalPage = tempIndex;
-    	// ipt[tempIndex].valid = TRUE;
-    	// ipt[tempIndex].use = FALSE;
-    	// ipt[tempIndex].dirty = FALSE;
-    	// ipt[tempIndex].readOnly = FALSE;
-      // ipt[tempIndex].spaceOwner = this; // extra piece of shit
 
 
 //          processTable->processEntries[processId]->stackLocations[currentThread->id] = StackTopForMain; //Assigns arbitrarily to main for every exec
 
 
-//        executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]),
-  //          PageSize, 40 + pageTable[i].virtualPage * PageSize);
+        executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]),
+            PageSize, 40 + pageTable[i].virtualPage * PageSize);
         //where we want to read it to, how much do we want to copy, where we want to read it from
     }
 
@@ -256,15 +221,15 @@ return; //TODO: what behaviour when file is invalid
 
 AddrSpace::~AddrSpace()
 {
-  // for (int i = 0 ; i < numPages ; i++){
-  //   if(pageTable[i].physicalPage != -1){
-  //     bitmap->Clear(pageTable[i].physicalPage);
+  for (int i = 0 ; i < numPages ; i++){
+    if(pageTable[i].physicalPage != -1){
+      bitmap->Clear(pageTable[i].physicalPage);
 
-  //   }
-  // }
-  // delete pageTable;
-  // delete [] userLocks;
-  // delete [] userConds;
+    }
+  }
+  delete pageTable;
+  delete [] userLocks;
+  delete [] userConds;
 }
 
 //----------------------------------------------------------------------
@@ -308,15 +273,7 @@ AddrSpace::InitRegisters()
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState()
-{
-    for(int i = 0; i < 4; ++i) {
-        if(machine->tlb[i].valid){
-          ipt[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
-        }
-        machine->tlb[i].valid = FALSE;
-    }
-
-}
+{}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
@@ -328,14 +285,14 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState()
 {
-    //machine->pageTable = pageTable;
-    //machine->pageTableSize = numPages;
+    machine->pageTable = pageTable;
+    machine->pageTableSize = numPages;
 }
 
 int AddrSpace::NewPageTable(){
     pageTableLock->Acquire();
     cout << "Creating new pagetable for currentThread: " << currentThread->getName() << endl;
-    ExtendedTranslationEntry* newTable = new ExtendedTranslationEntry [numPages+8];
+    TranslationEntry* newTable = new TranslationEntry [numPages+8];
     for (unsigned int i = 0; i < numPages; i++) {
     	newTable[i].virtualPage = pageTable[i].virtualPage;	// for now, virtual page # = phys page #
     	newTable[i].physicalPage = pageTable[i].physicalPage;
@@ -349,8 +306,6 @@ int AddrSpace::NewPageTable(){
     					// pages to be read-only
     }
     int tempIndex = 0;
-
-    
     for (unsigned int i = numPages; i < numPages+8; i++) {
       // tempIndex = bitmap->Find();
       // if (tempIndex == -1){ //TODO: remove this clause?
@@ -369,15 +324,7 @@ int AddrSpace::NewPageTable(){
       newTable[i].byteOffset = -1;
     					// a separate page, we could set its
     					// pages to be read-only
-      /*ipt[tempIndex].virtualPage = i;	// for now, virtual page # = phys page #
-    	ipt[tempIndex].physicalPage = tempIndex;
-    	ipt[tempIndex].valid = TRUE;
-    	ipt[tempIndex].use = FALSE;
-    	ipt[tempIndex].dirty = FALSE;
-    	ipt[tempIndex].readOnly = FALSE;
-      ipt[tempIndex].spaceOwner = this; // extra piece of shit*/
     }
-    
     delete[] pageTable;
     pageTable = newTable;
     numPages = numPages+8;
@@ -405,17 +352,16 @@ void AddrSpace::DeleteCurrentThread(){
       pageTable[stackLocation + i].physicalPage = -1;
       for(int j = 0; j < TLBSize; j++){
         if(machine->tlb[j].physicalPage = stackLocation + i){
-            machine->tlb[j].valid = FALSE;    
+            machine->tlb[j].valid = FALSE;
         }
       }
     }
 
     pageTable[stackLocation + i].valid = FALSE;
-    
+
     //interrupt->SetLevel(oldLevel);
   }
     pageTableLock->Release();
-  
 }
 
 void AddrSpace::PrintPageTable(){
