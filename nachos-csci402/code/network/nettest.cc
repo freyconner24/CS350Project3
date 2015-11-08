@@ -123,7 +123,8 @@ struct ServerLock {
     enum LockStatus {FREE, BUSY};
     LockStatus lockStatus;
     char* name;
-    List* waitQueue;
+    MailBox* waitQueue;
+    int queueSize;
     ServerThread lockOwner;
 };
 
@@ -181,8 +182,8 @@ void setLockToNull(ServerLock& lock) {
 
     lock.lockStatus = lock.FREE;
     lock.waitQueue = NULL;
-    lock.lockOwner.machineId = -1; 
-    lock.lockOwner.mailboxNum = -1; 
+    lock.lockOwner.machineId = -1;
+    lock.lockOwner.mailboxNum = -1;
 }
 
 struct ServerMon {
@@ -305,6 +306,7 @@ int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader
 void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     cout << lockIndex << " " << validateLockIndex(lockIndex) <<endl;
     if(!validateLockIndex(lockIndex)) {
+        sendMessageToClient("Invalid lock index!", pktHdr, mailHdr);
         return;
     }
 
@@ -314,6 +316,7 @@ void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
 
     if(serverLocks[lockIndex].lockStatus == serverLocks[lockIndex].BUSY && serverCurrentThread == serverLocks[lockIndex].lockOwner) //current thread is lock owner
     {
+        sendMessageToClient("Lock is yours. Done nothing.", pktHdr, mailHdr);
         return;
     }
 
@@ -326,18 +329,25 @@ void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
         serverLocks[lockIndex].lockOwner.machineId;
         serverLocks[lockIndex].lockOwner.mailboxNum;
         sendMessageToClient("You got the lock!", pktHdr, mailHdr);
-
+        return;
     }
     else //lock is busy
     {
-        serverLocks[lockIndex].waitQueue->Append(&serverCurrentThread); //Put current thread on the lock’s waitQueue
+      pktHdr.to = pktHdr.from;
+      int temp = mailHdr.to;
+      mailHdr.to = mailHdr.from;
+        mailHdr.from = temp;
+
+        serverLocks[lockIndex].waitQueue->Put(pktHdr, mailHdr, "You got the lock!"); //Put current thread on the lock’s waitQueue
+        ++serverLocks[lockIndex].queueSize;
     }
 }
 
 void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
       cout << lockIndex << endl;
-        return;
+      sendMessageToClient("Invalid lock index!", pktHdr, mailHdr);
+      return;
     }
 
     ServerThread serverCurrentThread;
@@ -346,24 +356,34 @@ void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
 
     if(!(serverCurrentThread == serverLocks[lockIndex].lockOwner)) //current thread is not lock owner
     {
+        sendMessageToClient("No permission to release!", pktHdr, mailHdr);
         return;
+    }
+
+    if (serverLocks[lockIndex].lockStatus = serverLocks[lockIndex].FREE ){
+      sendMessageToClient("Lock is free, nothing is done.", pktHdr, mailHdr);
+      return;
     }
 
     pktHdr.to = serverLocks[lockIndex].lockOwner.machineId;
     mailHdr.to = serverLocks[lockIndex].lockOwner.mailboxNum;
 
     if (serverLocks[lockIndex].deleteFlag == TRUE){
-      serverLocks[lockIndex].isDeleted == TRUE;
+      serverLocks[lockIndex].isDeleted = TRUE;
       delete serverLocks[lockIndex].waitQueue;
       delete serverLocks[lockIndex].name;
-      sendMessageToClient("You released the lock! DeleteFlag is true so the lock is deleted.", pktHdr, mailHdr);
-
+      sendMessageToClient("Realesed, the lock is also deleted.", pktHdr, mailHdr);
+      return;
     }
-    else if(!serverLocks[lockIndex].waitQueue->IsEmpty()) //lock waitQueue is not empty
+    else if(serverLocks[lockIndex].queueSize > 0) //lock waitQueue is not empty
     {
-        ServerThread thread = *(ServerThread*) (serverLocks[lockIndex].waitQueue->Remove()); //remove 1 waiting thread
-        serverLocks[lockIndex].lockOwner = thread; //make them lock owner
-        sendMessageToClient("You released the lock! Another thread has taken it", pktHdr, mailHdr);
+      sendMessageToClient("Released. Another thread took it.", pktHdr, mailHdr);
+        char data[MaxMailSize];
+        serverLocks[lockIndex].waitQueue->Get(&pktHdr,&mailHdr, data);
+        --(serverLocks[lockIndex].queueSize);
+        serverLocks[lockIndex].lockOwner.machineId = pktHdr.to; //unset ownership
+        serverLocks[lockIndex].lockOwner.mailboxNum = mailHdr.to; //unset ownership
+        postOffice->Send(pktHdr, mailHdr, data);
     }
     else
     {
@@ -376,6 +396,7 @@ void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
 
 void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     if(!validateLockIndex(lockIndex)) {
+      sendMessageToClient("Invalid lock index!", pktHdr, mailHdr);
         return;
     }
 
@@ -385,23 +406,29 @@ void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) 
 
     if(!(serverCurrentThread == serverLocks[lockIndex].lockOwner)) //current thread is not lock owner
     {
-        return;
+      pktHdr.to = serverLocks[lockIndex].lockOwner.machineId;
+      mailHdr.to = serverLocks[lockIndex].lockOwner.mailboxNum;
+      sendMessageToClient("Lock not yours! Can't Destroy.", pktHdr, mailHdr);
+      return;
     }
 
-    if(!serverLocks[lockIndex].waitQueue->IsEmpty()) //lock waitQueue is not empty
+    if(serverLocks[lockIndex].lockStatus == serverLocks[lockIndex].BUSY) //lock waitQueue is not empty
     {
-        ServerThread thread = *(ServerThread*) (serverLocks[lockIndex].waitQueue->Remove()); //remove 1 waiting thread
-        serverLocks[lockIndex].lockOwner = thread; //make them lock owner
+      serverLocks[lockIndex].deleteFlag = TRUE;
+      PacketHeader pktHdr1;
+      MailHeader mailHdr1;
+      pktHdr1.to = serverLocks[lockIndex].lockOwner.machineId;
+      mailHdr1.to = serverLocks[lockIndex].lockOwner.mailboxNum;
+      sendMessageToClient("Lock is in use will be destroyed later.", pktHdr, mailHdr);
     }
     else
     {
-        pktHdr.to = serverLocks[lockIndex].lockOwner.machineId;
-        mailHdr.to = serverLocks[lockIndex].lockOwner.mailboxNum;
         serverLocks[lockIndex].lockStatus = serverLocks[lockIndex].FREE; //make lock available
         serverLocks[lockIndex].lockOwner.machineId = -1; //unset ownership
         serverLocks[lockIndex].lockOwner.mailboxNum = -1; //unset ownership
+        serverLocks[lockIndex].isDeleted = TRUE; //unset ownership
+        sendMessageToClient("You destroyed the lock!", pktHdr, mailHdr);
     }
-    sendMessageToClient("You destroyed the lock!", pktHdr, mailHdr);
 }
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
@@ -493,11 +520,11 @@ void Signal_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, Mail
     }
 
     //Wake up one waiting thread
-    ServerThread thread = *(ServerThread*) (serverConds[conditionIndex].waitQueue->Remove()); //remove 1 waiting thread        
+    ServerThread thread = *(ServerThread*) (serverConds[conditionIndex].waitQueue->Remove()); //remove 1 waiting thread
 
     serverLocks[lockIndex].lockOwner = thread;
     Acquire_server(lockIndex, pktHdr, mailHdr);
-    
+
     if(serverConds[conditionIndex].waitQueue->IsEmpty()) //waitQueue is empty
     {
         setLockToNull(*waitingLock);
@@ -559,7 +586,7 @@ void Server() {
     cout << "Server()" << endl;
     char sysCode1, sysCode2;
     for (int i = 0; i <MAX_MON_COUNT; ++i){
-      serverLocks[i].waitQueue = new List();
+      serverLocks[i].waitQueue = new MailBox();
     }
     PacketHeader pktHdr; // Pkt is hardware level // just need to know the machine->Id at command line
     MailHeader mailHdr; // Mail
