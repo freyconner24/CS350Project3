@@ -30,6 +30,7 @@
 #include "system.h"
 #include "syscall.h"
 #include "custom_syscalls.h"
+#include "list.h"
 #include <stdio.h>
 #include <iostream>
 #include <string>
@@ -359,53 +360,72 @@ bool isLastProcess() {
 
 int handleMemoryFull(){
     printf("Entering handleMemoryFull()\n");
-    cout << "Got here 3" << endl;
+    // cout << "Got here 3" << endl;
     ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
     // if(/*something that indicates FIFO replacement*/){ //TODO: FIFO or random replacement
     //}else if(/*something that indicates random replacement*/){
-    int pageToBoot = rand () % NumPhysPages;
-    if(ipt[pageToBoot].dirty){ // TODO: should be pageTable?
-        cout << "Got here 3.1" << endl;
-        int swapLocationPPN = swapfileBitmap->Find();
-        cout << "Got here 3.1.1" << endl;
-        swapfile->WriteAt(&(machine->mainMemory[pageToBoot * PageSize]), PageSize, PageSize * swapLocationPPN);
-        cout << "Got here 3.1.2" << endl;
-        pageTable[ipt[pageToBoot].virtualPage].diskLocation = SWAP;
-        cout << "Got here 3.1.3" << endl;
-        pageTable[ipt[pageToBoot].virtualPage].byteOffset = PageSize * swapLocationPPN;
+    
+    int pageToBoot;
+    if(runWithFIFO){
+        pageToBoot = (int)swapQueue->Remove();
+        cout << "LE FIFE Booting FIFO page number: " << pageToBoot << endl;
+    }else{
+        pageToBoot = rand () % NumPhysPages;    
+        cout << "LE FIFE Booting RAND page number: " << pageToBoot << endl;
     }
 
-    cout << "Got here 3.2" << endl;
+    for (int i = 0; i < TLBSize; i++){
+        if(machine->tlb[i].physicalPage == pageToBoot && ipt[pageToBoot].spaceOwner == currentThread->space){
+            machine->tlb[i].valid = FALSE;
+            if(machine->tlb[i].dirty){
+                ipt[pageToBoot].dirty = TRUE;
+            }
+        }
+    }
+
+    if(ipt[pageToBoot].dirty){ // TODO: should be pageTable?
+        // cout << "Got here 3.1" << endl;
+        int swapLocationPPN = swapfileBitmap->Find();
+        // cout << "Got here 3.1.1" << endl;
+        swapfile->WriteAt(&(machine->mainMemory[pageToBoot * PageSize]), PageSize, PageSize * swapLocationPPN);
+        // cout << "Got here 3.1.2" << endl;
+        pageTable[ipt[pageToBoot].virtualPage].diskLocation = SWAP;
+        // cout << "Got here 3.1.3" << endl;
+        pageTable[ipt[pageToBoot].virtualPage].byteOffset = PageSize * swapLocationPPN;
+    }
+    pageTable[ipt[pageToBoot].virtualPage].physicalPage = -1;
+    // cout << "Got here 3.2" << endl;
     return pageToBoot;
 }
 
 int handleIPTMiss(int virtualPage){
     int ppn = bitmap->Find();  //Find a physical page of memory
-    printf("Entering handleIPTMiss(virtualPage: %d)\n", virtualPage);
+    // printf("Entering handleIPTMiss(virtualPage: %d)\n", virtualPage);
     ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
-    cout << "Got here 2" << endl;
+    // cout << "Got here 2" << endl;
 
     if ( ppn == -1 ) {
-        cout << "Got here 2.1" << endl;
+        // cout << "Got here 2.1" << endl;
         ppn = handleMemoryFull();
     }
     if(pageTable[virtualPage].diskLocation == EXECUTABLE){
-        cout << "Got here 2.3" << endl;
+        // cout << "Got here 2.3" << endl;
         currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
         //executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]), PageSize, 40 + pageTable[i].virtualPage * PageSize);
 
     }else if(pageTable[virtualPage].diskLocation == SWAP){
-        cout << "Got here 2.4" << endl;
+        // cout << "Got here 2.4" << endl;
         //TODO: swap file handling
         swapfile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
 
-        cout << "Got here 2.5" << endl;
+        // cout << "Got here 2.5" << endl;
         // pagetTable[virtualPage]->diskLocation = ??;
         //NOTE: could add Clear from swapfile, cause now the page is in main memory
     }
 
-    cout << "Got here 2.6" << endl;
-
+    // cout << "Got here 2.6" << endl;
+    cout << "Appending to swapqueue num: " << ppn << endl;
+    swapQueue->Append((void*)ppn);
     ipt[ppn].virtualPage = virtualPage;
     ipt[ppn].physicalPage = ppn;
     ipt[ppn].valid = TRUE;
@@ -426,8 +446,8 @@ int handleIPTMiss(int virtualPage){
 
 void HandlePageFault(int virtualAddress) {
     int virtualPage = virtualAddress / PageSize;
-    printf("Entering HandlePageFault(virtualAddress: %d)\n", virtualAddress);
-    printf("virtualPage = virtualAddress / PageSize: %d\n", virtualPage);
+    // printf("Entering HandlePageFault(virtualAddress: %d)\n", virtualAddress);
+    // printf("virtualPage = virtualAddress / PageSize: %d\n", virtualPage);
     ++tlbCounter;
     TranslationEntry* tlb = machine->tlb;
 
@@ -444,7 +464,7 @@ void HandlePageFault(int virtualAddress) {
             ipt[i].spaceOwner == currentThread->space && 
             ipt[i].valid){
             ppn = i;
-            cout << "Got here 1 || ppn: " << ppn << endl;
+            // cout << "Got here 1 || ppn: " << ppn << endl;
             break;
         }
     }

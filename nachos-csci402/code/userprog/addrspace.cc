@@ -343,7 +343,7 @@ int AddrSpace::NewPageTable(){
     	newTable[i].use = pageTable[i].use;
     	newTable[i].dirty = pageTable[i].dirty;
     	newTable[i].readOnly = pageTable[i].readOnly;  // if the code segment was entirely on
-      newTable[i].byteOffset = 40 + pageTable[i].virtualPage * PageSize;
+      newTable[i].byteOffset = pageTable[i].byteOffset;
     	newTable[i].diskLocation = pageTable[i].diskLocation;
       				// a separate page, we could set its
     					// pages to be read-only
@@ -360,12 +360,13 @@ int AddrSpace::NewPageTable(){
 
 
       newTable[i].virtualPage = i;
-      newTable[i].valid = FALSE;
+      newTable[i].physicalPage = -1;
+      newTable[i].valid = TRUE;
       newTable[i].use = FALSE;
       newTable[i].dirty = FALSE;
       newTable[i].readOnly = FALSE;  // if the code segment was entirely on
       newTable[i].diskLocation = NEITHER;
-      newTable[i].byteOffset = 40 + newTable[i].virtualPage * PageSize;
+      newTable[i].byteOffset = -1;
     					// a separate page, we could set its
     					// pages to be read-only
       /*ipt[tempIndex].virtualPage = i;	// for now, virtual page # = phys page #
@@ -398,18 +399,23 @@ void AddrSpace::DeleteCurrentThread(){
   int stackLocation = processTable->processEntries[processId]->stackLocations[currentThread->id];
   //cout << "In DeleteCurrentThread, stackLocation: " << stackLocation << endl;
   for (int i = 0; i < UserStackSize / PageSize; ++i){ // UserStackSize / PageSize 's gonna be 8 for ass2
-    //Return physical page
-    bitmap->Clear(pageTable[stackLocation + i].physicalPage);
-    pageTable[stackLocation + i].physicalPage = -1;
-    pageTable[stackLocation + i].valid = FALSE;
-    //machine
-    // machine->pageTable = pageTable;
-    // machine->pageTableSize = numPages;
-    //machine->WriteRegister(StackReg, numPages * PageSize - 16);
-
+      //Return physical page
+    if(pageTable[stackLocation + i].physicalPage != -1){
+      bitmap->Clear(pageTable[stackLocation + i].physicalPage);
+      pageTable[stackLocation + i].physicalPage = -1;
+      for(int j = 0; j < TLBSize; j++){
+        if(machine->tlb[j].physicalPage = stackLocation + i){
+            machine->tlb[j].valid = FALSE;    
+        }
+      }
     }
+
+    pageTable[stackLocation + i].valid = FALSE;
+    
     //interrupt->SetLevel(oldLevel);
+  }
     pageTableLock->Release();
+  
 }
 
 void AddrSpace::PrintPageTable(){

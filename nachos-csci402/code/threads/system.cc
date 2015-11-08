@@ -35,7 +35,7 @@ IptEntry ipt[NumPhysPages];
 OpenFile *swapfile;
 BitMap* swapfileBitmap;
 List* swapQueue;
-
+bool runWithFIFO = true;
 #ifdef FILESYS_NEEDED
 FileSystem  *fileSystem;
 #endif
@@ -97,7 +97,6 @@ Initialize(int argc, char **argv)
     int argCount;
     char* debugArgs = "";
     bool randomYield = FALSE;
-
 #ifdef USER_PROGRAM
     bool debugUserProg = FALSE;	// single step user program
 #endif
@@ -144,6 +143,16 @@ Initialize(int argc, char **argv)
 	    argCount = 2;
 	}
 #endif
+    else if (!strcmp(*argv, "-P")) {
+        ASSERT(argc > 1);
+        char* fifoOrRandString = (*(argv + 1));
+        if(!strcmp(fifoOrRandString, "RAND")){
+            runWithFIFO = FALSE;
+        }
+
+        argCount = 2;
+
+    }
     userLocks[MAX_LOCK_COUNT];
     userConds[MAX_COND_COUNT];
     kernelLock = new Lock("KernelLock");
