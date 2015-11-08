@@ -13,6 +13,7 @@
 
 #define BUFFER_SIZE 32
 
+// create condition syscall
 int CreateCondition_sys(int vaddr, int size, int appendNum) {
 	char* name = new char[size + 1];
 	name[size] = '\0'; //end the char array with a null character
@@ -24,12 +25,7 @@ int CreateCondition_sys(int vaddr, int size, int appendNum) {
 		return -1;
 	}
 
-	PacketHeader pktHdr;
-	MailHeader mailHdr;
-
-    sendToServer(pktHdr, mailHdr, "C C ", name, -1, -1);
-
-    string receivedString = getFromServer(pktHdr, mailHdr);
+    string receivedString = sendAndRecieveMessage("C C ", name, -1, -1);
     stringstream ss;
     ss << receivedString;
 
@@ -48,46 +44,27 @@ int CreateCondition_sys(int vaddr, int size, int appendNum) {
 	return currentCondIndex;
 }
 
+// condition wait syscall
 void Wait_sys(int lockIndex, int conditionIndex) {
-	PacketHeader pktHdr;
-	MailHeader mailHdr;
-	sendToServer(pktHdr, mailHdr, "C W ", "", lockIndex, conditionIndex);
-
-	string receivedString = getFromServer(pktHdr, mailHdr);
-
+	string receivedString = sendAndRecieveMessage("C W ", "", lockIndex, conditionIndex);
     cout << "Client::Wait::receivedString: " << receivedString << endl;
 }
 
+// condition signal syscall
 void Signal_sys(int lockIndex, int conditionIndex) {
-	PacketHeader pktHdr;
-	MailHeader mailHdr;
-
-    sendToServer(pktHdr, mailHdr, "C S ", "", lockIndex, conditionIndex);
-
-	string receivedString = getFromServer(pktHdr, mailHdr);
-
+	string receivedString = sendAndRecieveMessage("C S ", "", lockIndex, conditionIndex);
     cout << "Client::Signal::receivedString: " << receivedString << endl;
 }
 
+// condition broadcast syscall
 void Broadcast_sys(int lockIndex, int conditionIndex) {
-	PacketHeader pktHdr;
-	MailHeader mailHdr;
-
-    sendToServer(pktHdr, mailHdr, "C B ", "", lockIndex, conditionIndex);
-
-	string receivedString = getFromServer(pktHdr, mailHdr);
-
+	string receivedString = sendAndRecieveMessage("C B ", "", lockIndex, conditionIndex);
     cout << "Client::Broadcast::receivedString: " << receivedString << endl;
 }
 
-void DestroyCondition_sys(int index) {
-	PacketHeader pktHdr;
-	MailHeader mailHdr;
-
-    sendToServer(pktHdr, mailHdr, "C D ", "", index, -1);
-
-	string receivedString = getFromServer(pktHdr, mailHdr);
-
+// condition destroy syscall
+void DestroyCondition_sys(int conditionIndex) {
+	string receivedString = sendAndRecieveMessage("C D ", "", conditionIndex, -1);
     cout << "DestroyLock::receivedString: " << receivedString << endl;
 
 }

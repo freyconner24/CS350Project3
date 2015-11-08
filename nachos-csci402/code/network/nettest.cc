@@ -288,7 +288,7 @@ void sendCreateEntityMessage(stringstream &ss, PacketHeader &pktHdr, MailHeader 
 
 // ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
 
-int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader mailHdr) {
+int CreateLock_server(char* name, int appendNum, PacketHeader &pktHdr, MailHeader &mailHdr) {
     serverLocks[serverLockCount].deleteFlag = FALSE;
     serverLocks[serverLockCount].isDeleted = FALSE;
     serverLocks[serverLockCount].lockStatus = serverLocks[serverLockCount].FREE;
@@ -429,7 +429,7 @@ void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) 
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
 
-int CreateMonitor_server(string name, int appendNum) {
+int CreateMonitor_server(char* name, int appendNum) {
     int currentMonIndex = 0;
     return currentMonIndex;
 }
@@ -454,8 +454,15 @@ void DestroyMonitor_server(int monitorIndex) {
 
 // ++++++++++++++++++++++++++++ CVs ++++++++++++++++++++++++++++
 
-int CreateCondition_server(string name, int appendNum) {
-    int currentCondIndex = 0;
+int CreateCondition_server(char* name, int appendNum) {
+    serverConds[serverCondCount].deleteFlag = FALSE;
+    serverConds[serverCondCount].isDeleted = FALSE;
+    serverConds[serverCondCount].name = name;
+    serverConds[serverCondCount].waitingLockIndex = -1;
+
+    int currentCondIndex = serverCondCount;
+    ++serverCondCount;
+
     return currentCondIndex;
 }
 

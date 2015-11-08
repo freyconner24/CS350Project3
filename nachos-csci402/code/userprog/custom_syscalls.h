@@ -7,6 +7,7 @@ enum UpadateState {SLEEP, AWAKE, FINISH};
 
 void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, char name[], int entityIndex1, int entityIndex2);
 string getFromServer(PacketHeader &pktHdr, MailHeader &mailHdr);
+string sendAndRecieveMessage(char* sysCode, char* name, int entityIndex1, int entityIndex2);
 
 void updateProcessThreadCounts(AddrSpace* addrSpace, UpadateState updateState);
 
