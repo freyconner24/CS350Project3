@@ -147,7 +147,7 @@ void DestroyLock_sys(int index) {
 	PacketHeader pktHdr;
 	MailHeader mailHdr;
 
-    sendToServer(pktHdr, mailHdr, "L R ", "", index, -1);
+    sendToServer(pktHdr, mailHdr, "L D ", "", index, -1);
 
 	string receivedString = getFromServer(pktHdr, mailHdr);
 
