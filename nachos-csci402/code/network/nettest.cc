@@ -372,18 +372,6 @@ void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
         serverLocks[lockIndex].lockOwner.mailboxNum = -1; //unset ownership
         sendMessageToClient("You released the lock!", pktHdr, mailHdr);
     }
-
-
-    /*char* data = "You released the lock!";
-    mailHdr.length = strlen(data) + 1;
-    cout << pktHdr.to << ' ' << mailHdr.to << ' '<< mailHdr.from << ' '<< mailHdr.length<< endl;
-
-    bool success = postOffice->Send(pktHdr, mailHdr, data);
-
-    if ( !success ) {
-        printf("Release::The second postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
-        interrupt->Halt();
-    }*/
 }
 
 void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
@@ -414,17 +402,6 @@ void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) 
         serverLocks[lockIndex].lockOwner.mailboxNum = -1; //unset ownership
     }
     sendMessageToClient("You destroyed the lock!", pktHdr, mailHdr);
-
-    char* data = "You destroyed the lock!";
-    mailHdr.length = strlen(data) + 1;
-    cout << pktHdr.to << ' ' << mailHdr.to << ' '<< mailHdr.from << ' '<< mailHdr.length<< endl;
-
-    bool success = postOffice->Send(pktHdr, mailHdr, data);
-
-    if ( !success ) {
-        printf("Release::The second postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
-        interrupt->Halt();
-    }
 }
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
