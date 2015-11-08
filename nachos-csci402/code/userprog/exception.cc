@@ -506,6 +506,24 @@ void ExceptionHandler(ExceptionType which) {
             DEBUG('a', "DestroyLock syscall.\n");
             DestroyLock_sys(machine->ReadRegister(4));
             break;
+        case SC_CreateMonitor:
+            DEBUG('a', "CreateMonitor syscall.\n");
+            rv = CreateMonitor_sys(machine->ReadRegister(4),
+                                machine->ReadRegister(5),
+                                machine->ReadRegister(6));
+            break;
+        case SC_GetMonitor:
+            DEBUG('a', "GetMonitor syscall.\n");
+            GetMonitor_sys(machine->ReadRegister(4));
+            break;
+        case SC_SetMonitor:
+            DEBUG('a', "SetMonitor syscall.\n");
+            SetMonitor_sys(machine->ReadRegister(4));
+            break;
+        case SC_DestroyMonitor:
+            DEBUG('a', "DestroyMonitor syscall.\n");
+            DestroyMonitor_sys(machine->ReadRegister(4));
+            break;
         case SC_CreateCondition:
             DEBUG('a', "CreateCondition syscall.\n");
             rv = CreateCondition_sys(machine->ReadRegister(4),

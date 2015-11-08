@@ -242,6 +242,38 @@ PrintNl:
 	j	$31
 	.end PrintNl
 
+	.globl CreateMonitor
+	.ent	CreateMonitor
+CreateMonitor:
+	addiu $2,$0,SC_CreateMonitor
+	syscall
+	j	$31
+	.end CreateMonitor
+
+	.globl GetMonitor
+	.ent	GetMonitor
+GetMonitor:
+	addiu $2,$0,SC_GetMonitor
+	syscall
+	j	$31
+	.end GetMonitor
+
+	.globl SetMonitor
+	.ent	SetMonitor
+SetMonitor:
+	addiu $2,$0,SC_SetMonitor
+	syscall
+	j	$31
+	.end SetMonitor
+
+	.globl DestroyMonitor
+	.ent	DestroyMonitor
+DestroyMonitor:
+	addiu $2,$0,SC_DestroyMonitor
+	syscall
+	j	$31
+	.end DestroyMonitor
+
 /* dummy function to keep gcc happy */
         .globl  __main
         .ent    __main
