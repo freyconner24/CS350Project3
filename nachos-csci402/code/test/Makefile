@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite
+all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -111,6 +111,24 @@ networkTestsuite.o: networkTestsuite.c
 networkTestsuite: networkTestsuite.o start.o
 				$(LD) $(LDFLAGS) start.o networkTestsuite.o -o networkTestsuite.coff
 				../bin/coff2noff networkTestsuite.coff networkTestsuite
+
+lock_t1.o: lock_t1.c
+				$(CC) $(CFLAGS) -c lock_t1.c
+lock_t1: lock_t1.o start.o
+				$(LD) $(LDFLAGS) start.o lock_t1.o -o lock_t1.coff
+				../bin/coff2noff lock_t1.coff lock_t1
+
+lock_t2.o: lock_t2.c
+				$(CC) $(CFLAGS) -c lock_t2.c
+lock_t2: lock_t2.o start.o
+				$(LD) $(LDFLAGS) start.o lock_t2.o -o lock_t2.coff
+				../bin/coff2noff lock_t2.coff lock_t2
+
+lockInvalidTest.o: lockInvalidTest.c
+				$(CC) $(CFLAGS) -c lockInvalidTest.c
+lockInvalidTest: lockInvalidTest.o start.o
+				$(LD) $(LDFLAGS) start.o lockInvalidTest.o -o lockInvalidTest.coff
+				../bin/coff2noff lockInvalidTest.coff lockInvalidTest
 
 clean:
 	rm -f *.o *.coff
