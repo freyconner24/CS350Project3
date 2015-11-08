@@ -87,11 +87,15 @@ MailTest(int farAddr)
 
 // ++++++++++++++++++++++++++++ Declarations ++++++++++++++++++++++++++++
 
+// abstract concept.  Even thought there are no actual threads, it makes it easier
+// to port from the synch.cc file
 struct ServerThread{
   int machineId;
   int mailboxNum;
 };
 
+// check if ServerThread is "null".  again, this is an abstract concept
+// in order to accommodate a direct mapping from the synch.cc file
 bool threadIsNull(ServerThread thread) {
     if(thread.machineId != -1) {
         return FALSE;
@@ -104,6 +108,8 @@ bool threadIsNull(ServerThread thread) {
     return TRUE;
 }
 
+// operator overload for == on ServerThread
+// since we can't compare structs easily
 bool operator==(const ServerThread& t1, const ServerThread& t2) {
     if(t1.machineId != t2.machineId) {
         return false;
@@ -116,6 +122,7 @@ bool operator==(const ServerThread& t1, const ServerThread& t2) {
     return true;
 }
 
+// lock implementation for server
 struct ServerLock {
     bool deleteFlag;
     bool isDeleted;
@@ -127,6 +134,8 @@ struct ServerLock {
     ServerThread lockOwner;
 };
 
+// operator overload for == on ServerLock
+// since we can't compare structs easily
 bool operator==(const ServerLock& l1, const ServerLock& l2) {
     if(l1.deleteFlag != l2.deleteFlag) {
         return false;
@@ -151,6 +160,8 @@ bool operator==(const ServerLock& l1, const ServerLock& l2) {
     return true;
 }
 
+// check if ServerLock is "null".  again, this is an abstract concept
+// in order to accommodate a direct mapping from the synch.cc file
 bool lockIsNull(ServerLock lock) {
     if(lock.deleteFlag != FALSE) {
         return FALSE;
@@ -175,6 +186,8 @@ bool lockIsNull(ServerLock lock) {
     return TRUE;
 }
 
+// set ServerLock to "null".  again, this is an abstract concept
+// in order to accommodate a direct mapping from the synch.cc file
 void setLockToNull(ServerLock& lock) {
     lock.deleteFlag = FALSE;
     lock.isDeleted = FALSE;
@@ -185,11 +198,13 @@ void setLockToNull(ServerLock& lock) {
     lock.lockOwner.mailboxNum = -1; 
 }
 
+// monitor implementation on the server
 struct ServerMon {
     bool deleteFlag;
     bool isDeleted;
 };
 
+// condition implementation on the server
 struct ServerCond {
     bool deleteFlag;
     bool isDeleted;
@@ -199,16 +214,19 @@ struct ServerCond {
     List *waitQueue;
 };
 
+// arrays of all of the monitor variables
 ServerLock serverLocks[MAX_MON_COUNT];
 ServerMon serverMons[MAX_MON_COUNT];
 ServerCond serverConds[MAX_MON_COUNT];
 
+// server counts of the locks, mons, and conds
 int serverLockCount = 0;
 int serverMonCount = 0;
 int serverCondCount = 0;
 
 // ++++++++++++++++++++++++++++ Validation ++++++++++++++++++++++++++++
 
+// make sure that we were handed a valid lock
 bool validateLockIndex(int lockIndex) {
     if (lockIndex < 0 || lockIndex >= serverLockCount){ // check if index is in valid range
       DEBUG('l',"    Lock::Lock number %d invalid, thread can't acquire-----------------------\n", lockIndex);
@@ -221,6 +239,7 @@ bool validateLockIndex(int lockIndex) {
     return true;
 }
 
+// make sure that we were handed a valid monitor
 bool validateMonitorIndex(int monitorIndex) {
     if (monitorIndex < 0 || monitorIndex >= serverMonCount){ // check if index is in valid range
       DEBUG('l',"    Mon::Mon number %d invalid\n", monitorIndex);
@@ -233,6 +252,7 @@ bool validateMonitorIndex(int monitorIndex) {
     return true;
 }
 
+// make sure that we were handed a valid condition
 bool validateConditionIndex(int conditionIndex) {
     if (conditionIndex < 0 || conditionIndex >= serverCondCount){ // check if index is in valid range
       DEBUG('l',"    Cond::Cond number %d invalid\n", conditionIndex);
@@ -245,8 +265,9 @@ bool validateConditionIndex(int conditionIndex) {
     return true;
 }
 
-// utility sender messages
+// +++++++++++++++++ UTILITY SERVER METHODS +++++++++++++++++
 
+// abstract method to send message to the client from the server
 void sendMessageToClient(char* data, PacketHeader &pktHdr, MailHeader &mailHdr) {
     pktHdr.to = pktHdr.from;
     int clientMailbox = mailHdr.to;
@@ -262,6 +283,7 @@ void sendMessageToClient(char* data, PacketHeader &pktHdr, MailHeader &mailHdr) 
     }
 }
 
+// abstract method to send message to the client from the server
 void sendCreateEntityMessage(stringstream &ss, PacketHeader &pktHdr, MailHeader &mailHdr) {
     const char* tempChar = ss.str().c_str();
     cout << "tempChar: " << ss.str() << endl;
@@ -288,6 +310,7 @@ void sendCreateEntityMessage(stringstream &ss, PacketHeader &pktHdr, MailHeader 
 
 // ++++++++++++++++++++++++++++ Locks ++++++++++++++++++++++++++++
 
+// create lock server call
 int CreateLock_server(char* name, int appendNum, PacketHeader &pktHdr, MailHeader &mailHdr) {
     serverLocks[serverLockCount].deleteFlag = FALSE;
     serverLocks[serverLockCount].isDeleted = FALSE;
@@ -302,6 +325,7 @@ int CreateLock_server(char* name, int appendNum, PacketHeader &pktHdr, MailHeade
     return currentLockIndex;
 }
 
+// acquire lock server call
 void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     cout << lockIndex << " " << validateLockIndex(lockIndex) <<endl;
     if(!validateLockIndex(lockIndex)) {
@@ -334,6 +358,7 @@ void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     }
 }
 
+// create release server call
 void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
       cout << lockIndex << endl;
@@ -386,6 +411,7 @@ void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     }*/
 }
 
+// destroy lock server call
 void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
@@ -429,23 +455,27 @@ void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) 
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
 
+// create monitor server call
 int CreateMonitor_server(char* name, int appendNum) {
     int currentMonIndex = 0;
     return currentMonIndex;
 }
 
+// get monitor server call
 void GetMonitor_server(int monitorIndex) {
     if(!validateMonitorIndex(monitorIndex)) {
         return;
     }
 }
 
+// set monitor server call
 void SetMonitor_server(int monitorIndex) {
     if(!validateMonitorIndex(monitorIndex)) {
         return;
     }
 }
 
+// destroy monitor server call
 void DestroyMonitor_server(int monitorIndex) {
     if(!validateMonitorIndex(monitorIndex)) {
         return;
@@ -454,6 +484,7 @@ void DestroyMonitor_server(int monitorIndex) {
 
 // ++++++++++++++++++++++++++++ CVs ++++++++++++++++++++++++++++
 
+// create condition server call
 int CreateCondition_server(char* name, int appendNum) {
     serverConds[serverCondCount].deleteFlag = FALSE;
     serverConds[serverCondCount].isDeleted = FALSE;
@@ -466,6 +497,7 @@ int CreateCondition_server(char* name, int appendNum) {
     return currentCondIndex;
 }
 
+// wait condition server call
 void Wait_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
@@ -500,6 +532,7 @@ void Wait_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, MailHe
     Acquire_server(lockIndex, pktHdr, mailHdr);
 }
 
+// signal condition server call
 void Signal_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
@@ -534,6 +567,7 @@ void Signal_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, Mail
     }
 }
 
+// broadcast condition server call
 void Broadcast_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
@@ -561,13 +595,14 @@ void Broadcast_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, M
     }
 }
 
+// destroy condition server call
 void DestroyCondition_server(int conditionIndex) {
     if(!validateConditionIndex(conditionIndex)) {
         return;
     }
 }
 
-// [SysCode1|SysCode2|results|entityId1|entityId2|entityId3]
+// +++++++++++++++++ ENCODINGS +++++++++++++++++++
 
 // CreateLock:       "L C name"
 // Acquire:          "L A 32"
@@ -585,6 +620,8 @@ void DestroyCondition_server(int conditionIndex) {
 // Broadcast:        "C B 21 36"
 // DestroyCondition: "C D 21"
 
+
+// Server polling and sending messages
 void Server() {
     cout << "Server()" << endl;
     char sysCode1, sysCode2;
@@ -600,8 +637,6 @@ void Server() {
 
     while(true) {
         //Recieve the message
-        //std::fill(&buffer[0], &buffer[MaxMailSize], 0);
-
         ss.str("");
         ss.clear();
         cout << "Recieve()" << endl;
@@ -626,9 +661,9 @@ void Server() {
         }
         cout << "Server::got past if block" << endl;
         switch(sysCode1) {
-            case 'L':
+            case 'L': // lock server calls
                 switch(sysCode2) {
-                    case 'C':
+                    case 'C': // create lock
                         cout << "Got to CreateLock_server" << endl;
                         ss.str("");
                         ss.clear();
@@ -638,7 +673,7 @@ void Server() {
                         //Process the message
                         sendCreateEntityMessage(ss, pktHdr, mailHdr);
                     break;
-                    case 'A':
+                    case 'A': // acquire lock
                         // only send reply when they can Acquire
                         cout << "Got to Acquire_server" << endl;
                         Acquire_server(entityIndex1, pktHdr, mailHdr);
@@ -646,13 +681,13 @@ void Server() {
                         ss.clear();
                         ss << "Acquire_server";
                     break;
-                    case 'R':
+                    case 'R': // release lock
                         Release_server(entityIndex1, pktHdr, mailHdr);
                         ss.str("");
                         ss.clear();
                         ss << "Release_server";
                     break;
-                    case 'D':
+                    case 'D': // destroy lock
                         DestroyLock_server(entityIndex1, pktHdr, mailHdr);
                         ss.str("");
                         ss.clear();
@@ -660,28 +695,29 @@ void Server() {
                     break;
                 }
             break;
-            case 'M':
+            case 'M': // monitor server calls
                 switch(sysCode2) {
-                    case 'C':
+                    case 'C': // create monitor
                         ss.str("");
                         ss.clear();
                         entityId = CreateMonitor_server(name, serverMonCount);
                         ss << entityId;
-                        ss << " CreateMonitor_server";
+                        cout << "CreateMonitor_server::entityId: " << entityId << endl;
+                        sendCreateEntityMessage(ss, pktHdr, mailHdr);
                     break;
-                    case 'G':
+                    case 'G': // get monitor
                         GetMonitor_server(entityIndex1);
                         ss.str("");
                         ss.clear();
                         ss << "GetMonitor_server";
                     break;
-                    case 'S':
+                    case 'S': // set monitor
                         SetMonitor_server(entityIndex1);
                         ss.str("");
                         ss.clear();
                         ss << "SetMonitor_server";
                     break;
-                    case 'D':
+                    case 'D': // destroy monitor
                         DestroyMonitor_server(entityIndex1);
                         ss.str("");
                         ss.clear();
@@ -689,37 +725,38 @@ void Server() {
                     break;
                 }
             break;
-            case 'C':
+            case 'C': // condition server calls
                 switch(sysCode2) {
-                    case 'C':
+                    case 'C': // create condition
                         ss.str("");
                         ss.clear();
                         entityId = CreateCondition_server(name, serverCondCount);
                         ss << entityId;
-                        ss << " CreateCondition_server";
+                        cout << "CreateCondition_server::entityId: " << entityId << endl;
+                        sendCreateEntityMessage(ss, pktHdr, mailHdr);
                     break;
-                    case 'W':
+                    case 'W': // condition wait
                         ss >> entityIndex2;
                         Wait_server(entityIndex1, entityIndex2, pktHdr, mailHdr); //lock then CV
                         ss.str("");
                         ss.clear();
                         ss << "Wait_server";
                     break;
-                    case 'S':
+                    case 'S': // condition signal
                         ss >> entityIndex2;
                         Signal_server(entityIndex1, entityIndex2, pktHdr, mailHdr); //lock then CV
                         ss.str("");
                         ss.clear();
                         ss << "Signal_server";
                     break;
-                    case 'B':
+                    case 'B': // create broadcast 
                         ss >> entityIndex2;
                         Broadcast_server(entityIndex1, entityIndex2, pktHdr, mailHdr); //lock then CV
                         ss.str("");
                         ss.clear();
                         ss << "Broadcast_server";
                     break;
-                    case 'D':
+                    case 'D': // destroy condition
                         DestroyCondition_server(entityIndex2);
                         ss.str("");
                         ss.clear();

@@ -14,7 +14,7 @@
 #define BUFFER_SIZE 32
 
 // +++++++++++++++++++++++++ UTILITY +++++++++++++++++++++++++
-// this function is a generic function that allows us to send any message to the server
+// generic function that allows us to send any message to the server
 void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, char name[], int entityIndex1, int entityIndex2) {
     mailHdr.to = 0;
     mailHdr.from = 0;
@@ -48,7 +48,7 @@ void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, c
 	}
 }
 
-// this function is a generic function that allows us to receive any message to the server
+// generic function that allows us to receive any message to the server
 string getFromServer(PacketHeader &pktHdr, MailHeader &mailHdr) {
 	char inBuffer[64];
     postOffice->Receive(0, &pktHdr, &mailHdr, inBuffer);
@@ -57,6 +57,10 @@ string getFromServer(PacketHeader &pktHdr, MailHeader &mailHdr) {
     return ss.str();
 }
 
+// generic send and recieve paradigm for program
+// this function takes the syscallCode, name of entity to be created, and the entity indexes
+// if it is not create, pass name as ""
+// if entity indexe(s) are needed, pass -1
 string sendAndRecieveMessage(char* sysCode, char* name, int entityIndex1, int entityIndex2) {
 	PacketHeader pktHdr;
 	MailHeader mailHdr;
