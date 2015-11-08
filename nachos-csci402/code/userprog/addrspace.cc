@@ -1,15 +1,15 @@
 // addrspace.cc
-//	Routines to manage address spaces (executing user programs).
+//  Routines to manage address spaces (executing user programs).
 //
-//	In order to run a user program, you must:
+//  In order to run a user program, you must:
 //
-//	1. link with the -N -T 0 option
-//	2. run coff2noff to convert the object file to Nachos format
-//		(Nachos object code format is essentially just a simpler
-//		version of the UNIX executable object code format)
-//	3. load the NOFF file into the Nachos file system
-//		(if you haven't implemented the file system yet, you
-//		don't need to do this last step)
+//  1. link with the -N -T 0 option
+//  2. run coff2noff to convert the object file to Nachos format
+//    (Nachos object code format is essentially just a simpler
+//    version of the UNIX executable object code format)
+//  3. load the NOFF file into the Nachos file system
+//    (if you haven't implemented the file system yet, you
+//    don't need to do this last step)
 //
 // Copyright (c) 1992-1993 The Regents of the University of California.
 // All rights reserved.  See copyright.h for copyright notice and limitation
@@ -31,12 +31,12 @@ Table::Table(int s) : map(s), table(0), lock(0), size(s) {
 
 Table::~Table() {
     if (table) {
-    	delete table;
-    	table = 0;
+      delete table;
+      table = 0;
     }
     if (lock) {
-    	delete lock;
-    	lock = 0;
+      delete lock;
+      lock = 0;
     }
 }
 
@@ -50,13 +50,13 @@ void *Table::Get(int i) {
 int Table::Put(void *f) {
     // Put the element in the table and return the slot it used.  Use a
     // lock so 2 files don't get the same space.
-    int i;	// to find the next slot
+    int i;  // to find the next slot
 
     lock->Acquire();
     i = map.Find();
     lock->Release();
     if ( i != -1)
-	table[i] = f;
+  table[i] = f;
     return i;
 }
 
@@ -67,48 +67,48 @@ void *Table::Remove(int i) {
     void *f =0;
 
     if ( i >= 0 && i < size ) {
-	lock->Acquire();
-	if ( map.Test(i) ) {
-	    map.Clear(i);
-	    f = table[i];
-	    table[i] = 0;
-	}
-	lock->Release();
+  lock->Acquire();
+  if ( map.Test(i) ) {
+      map.Clear(i);
+      f = table[i];
+      table[i] = 0;
+  }
+  lock->Release();
     }
     return f;
 }
 
 //----------------------------------------------------------------------
 // SwapHeader
-// 	Do little endian to big endian conversion on the bytes in the
-//	object file header, in case the file was generated on a little
-//	endian machine, and we're now running on a big endian machine.
+//  Do little endian to big endian conversion on the bytes in the
+//  object file header, in case the file was generated on a little
+//  endian machine, and we're now running on a big endian machine.
 //----------------------------------------------------------------------
 
 static void
 SwapHeader (NoffHeader *noffH)
 {
-	noffH->noffMagic = WordToHost(noffH->noffMagic);
-	noffH->code.size = WordToHost(noffH->code.size);
-	noffH->code.virtualAddr = WordToHost(noffH->code.virtualAddr);
-	noffH->code.inFileAddr = WordToHost(noffH->code.inFileAddr);
-	noffH->initData.size = WordToHost(noffH->initData.size);
-	noffH->initData.virtualAddr = WordToHost(noffH->initData.virtualAddr);
-	noffH->initData.inFileAddr = WordToHost(noffH->initData.inFileAddr);
-	noffH->uninitData.size = WordToHost(noffH->uninitData.size);
-	noffH->uninitData.virtualAddr = WordToHost(noffH->uninitData.virtualAddr);
-	noffH->uninitData.inFileAddr = WordToHost(noffH->uninitData.inFileAddr);
+  noffH->noffMagic = WordToHost(noffH->noffMagic);
+  noffH->code.size = WordToHost(noffH->code.size);
+  noffH->code.virtualAddr = WordToHost(noffH->code.virtualAddr);
+  noffH->code.inFileAddr = WordToHost(noffH->code.inFileAddr);
+  noffH->initData.size = WordToHost(noffH->initData.size);
+  noffH->initData.virtualAddr = WordToHost(noffH->initData.virtualAddr);
+  noffH->initData.inFileAddr = WordToHost(noffH->initData.inFileAddr);
+  noffH->uninitData.size = WordToHost(noffH->uninitData.size);
+  noffH->uninitData.virtualAddr = WordToHost(noffH->uninitData.virtualAddr);
+  noffH->uninitData.inFileAddr = WordToHost(noffH->uninitData.inFileAddr);
 }
 
 //----------------------------------------------------------------------
 // AddrSpace::AddrSpace
-// 	Create an address space to run a user program.
-//	Load the program from a file "executable", and set everything
-//	up so that we can start executing user instructions.
+//  Create an address space to run a user program.
+//  Load the program from a file "executable", and set everything
+//  up so that we can start executing user instructions.
 //
-//	Assumes that the object code file is in NOFF format.
+//  Assumes that the object code file is in NOFF format.
 //
-//	"executable" is the file containing the object code to load into memory
+//  "executable" is the file containing the object code to load into memory
 //
 //      It's possible to fail to fully construct the address space for
 //      several reasons, including being unable to allocate memory,
@@ -117,7 +117,7 @@ SwapHeader (NoffHeader *noffH)
 //      constructed set to false.
 //----------------------------------------------------------------------
 
-AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
+AddrSpace::AddrSpace(char *filename) : fileTable(MaxOpenFiles) {
   pageTableLock = new Lock("PageTableLock");
   pageTableLock->Acquire();
   lockCount = 0;
@@ -133,56 +133,91 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
     fileTable.Put(0);
     fileTable.Put(0);
 
+//Saving exectuable to addrspace
+executable = fileSystem->Open(filename);
+if (executable == NULL) {
+printf("Unable to open file %s\n", filename);
+return; //TODO: what behaviour when file is invalid
+}
+
+
+
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) &&
-		(WordToHost(noffH.noffMagic) == NOFFMAGIC))
-    	SwapHeader(&noffH);
+    (WordToHost(noffH.noffMagic) == NOFFMAGIC))
+      SwapHeader(&noffH);
     ASSERT(noffH.noffMagic == NOFFMAGIC);
 
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
-    numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
-    // we need to increase the size
-		// to leave room for the stack
+      numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
+
+    // size = noffH.code.size + noffH.initData.size {
+    //    noffH.uninitData.size ;
+    //   numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
+    // /
+    // else{
+    //   /
+    // }}/ we need to increase the size
+    // to leave room for the stack
     //size = numPages * PageSize;
 
-    ASSERT(numPages <= NumPhysPages);		// check we're not trying
-						// to run anything too big --
-						// at least until we have
-						// virtual memory
+    //TODO: delete asssert? executable numPages are very likely to be larger than NumPhysPages (32) for project 3
+    //ASSERT(numPages <= NumPhysPages);   // check we're not trying
+            // to run anything too big --
+            // at least until we have
+            // virtual memory
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n",
-					numPages, size);
+          numPages, size);
     int tempIndex = 0;
 // first, set up the translation
-  //  pageTableLock->Acquire();
-    pageTable = new TranslationEntry[numPages];
+   pageTableLock->Acquire();
+    pageTable = new ExtendedTranslationEntry[numPages]; //TODO: ?? Is NumPhysPages correct size?????????????
+
     processCount++;
     processId = processCount;
 
     StackTopForMain =  divRoundUp(size, PageSize);
 
+
+    printf("AddrSpace::numPages: %d\n", numPages);
     for (i = 0; i < numPages; i++) {
         //cout << "AddrSpace::numPage for(...): " << i << endl;
-        tempIndex = bitmap->Find();
-        if (tempIndex == -1){
-            DEBUG('g', "PAGETABLE TOO BIG");
-            break;
-        }
-    	pageTable[i].virtualPage = i;	// for now, virtual page # = phys page #
-    	pageTable[i].physicalPage = tempIndex;
-    	pageTable[i].valid = TRUE;
-    	pageTable[i].use = FALSE;
-    	pageTable[i].dirty = FALSE;
-    	pageTable[i].readOnly = FALSE;  // if the code segment was entirely on
-					// a separate page, we could set its
-					// pages to be read-only
+        // tempIndex = bitmap->Find();
+        // if (tempIndex == -1){
+        //     DEBUG('g', "PAGETABLE TOO BIG");
+        //     break;
+        // }
+      pageTable[i].virtualPage = i; // for now, virtual page # = phys page #
+      //pageTable[i].physicalPage = tempIndex;
+      pageTable[i].valid = FALSE;
+      pageTable[i].use = FALSE;
+      pageTable[i].dirty = FALSE;
+      pageTable[i].readOnly = FALSE;  // if the code segment was entirely on
+      pageTable[i].byteOffset = 40 + pageTable[i].virtualPage * PageSize;
+      if(i < divRoundUp(noffH.code.size, PageSize) + divRoundUp(noffH.initData.size, PageSize)) {
+        cout << "-------if" << endl;
+        pageTable[i].diskLocation = EXECUTABLE;
+      }else{
+        cout << "-------else" << endl;
+        pageTable[i].diskLocation = NEITHER;
+      }
+          // a separate page, we could set its
+          // pages to be read-only
+      // ipt[tempIndex].virtualPage = i;  // for now, virtual page # = phys page #
+      // ipt[tempIndex].physicalPage = tempIndex;
+      // ipt[tempIndex].valid = TRUE;
+      // ipt[tempIndex].use = FALSE;
+      // ipt[tempIndex].dirty = FALSE;
+      // ipt[tempIndex].readOnly = FALSE;
+      // ipt[tempIndex].spaceOwner = this; // extra piece of shit
 
 
 //          processTable->processEntries[processId]->stackLocations[currentThread->id] = StackTopForMain; //Assigns arbitrarily to main for every exec
 
 
-        executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]),
-            PageSize, 40 + pageTable[i].virtualPage * PageSize);
+//        executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]),
+  //          PageSize, 40 + pageTable[i].virtualPage * PageSize);
         //where we want to read it to, how much do we want to copy, where we want to read it from
     }
 
@@ -193,15 +228,15 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 // then, copy in the code and data segments into memory
     /*if (noffH.code.size > 0) {
         DEBUG('a', "Initializing code segment, at 0x%x, size %d\n",
-			noffH.code.virtualAddr, noffH.code.size);
+      noffH.code.virtualAddr, noffH.code.size);
         executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
-			noffH.code.size, noffH.code.inFileAddr);
+      noffH.code.size, noffH.code.inFileAddr);
     }
     if (noffH.initData.size > 0) {
         DEBUG('a', "Initializing data segment, at 0x%x, size %d\n",
-			noffH.initData.virtualAddr, noffH.initData.size);
+      noffH.initData.virtualAddr, noffH.initData.size);
         executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-			noffH.initData.size, noffH.initData.inFileAddr);
+      noffH.initData.size, noffH.initData.inFileAddr);
     }*/
 
     //TODO:check if needed
@@ -215,31 +250,31 @@ AddrSpace::AddrSpace(OpenFile *executable) : fileTable(MaxOpenFiles) {
 //----------------------------------------------------------------------
 // AddrSpace::~AddrSpace
 //
-// 	Dealloate an address space.  release pages, page tables, files
-// 	and file tables
+//  Dealloate an address space.  release pages, page tables, files
+//  and file tables
 //----------------------------------------------------------------------
 
 AddrSpace::~AddrSpace()
 {
-  for (int i = 0 ; i < numPages ; i++){
-    if(pageTable[i].physicalPage != -1){
-      bitmap->Clear(pageTable[i].physicalPage);
+  // for (int i = 0 ; i < numPages ; i++){
+  //   if(pageTable[i].physicalPage != -1){
+  //     bitmap->Clear(pageTable[i].physicalPage);
 
-    }
-  }
-  delete pageTable;
-  delete [] userLocks;
-  delete [] userConds;
+  //   }
+  // }
+  // delete pageTable;
+  // delete [] userLocks;
+  // delete [] userConds;
 }
 
 //----------------------------------------------------------------------
 // AddrSpace::InitRegisters
-// 	Set the initial values for the user-level register set.
+//  Set the initial values for the user-level register set.
 //
-// 	We write these directly into the "machine" registers, so
-//	that we can immediately jump to user code.  Note that these
-//	will be saved/restored into the currentThread->userRegisters
-//	when this thread is context switched out.
+//  We write these directly into the "machine" registers, so
+//  that we can immediately jump to user code.  Note that these
+//  will be saved/restored into the currentThread->userRegisters
+//  when this thread is context switched out.
 //----------------------------------------------------------------------
 
 void
@@ -248,7 +283,7 @@ AddrSpace::InitRegisters()
     int i;
 
     for (i = 0; i < NumTotalRegs; i++)
-	machine->WriteRegister(i, 0);
+  machine->WriteRegister(i, 0);
 
     // Initial program counter -- must be location of "Start"
     machine->WriteRegister(PCReg, 0);
@@ -266,46 +301,56 @@ AddrSpace::InitRegisters()
 
 //----------------------------------------------------------------------
 // AddrSpace::SaveState
-// 	On a context switch, save any machine state, specific
-//	to this address space, that needs saving.
+//  On a context switch, save any machine state, specific
+//  to this address space, that needs saving.
 //
-//	For now, nothing!
+//  For now, nothing!
 //----------------------------------------------------------------------
 
 void AddrSpace::SaveState()
-{}
+{
+    for(int i = 0; i < 4; ++i) {
+        if(machine->tlb[i].valid){
+          ipt[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
+        }
+        machine->tlb[i].valid = FALSE;
+    }
+
+}
 
 //----------------------------------------------------------------------
 // AddrSpace::RestoreState
-// 	On a context switch, restore the machine state so that
-//	this address space can run.
+//  On a context switch, restore the machine state so that
+//  this address space can run.
 //
 //      For now, tell the machine where to find the page table.
 //----------------------------------------------------------------------
 
 void AddrSpace::RestoreState()
 {
-    machine->pageTable = pageTable;
-    machine->pageTableSize = numPages;
+    // machine->pageTable = pageTable;
+    // machine->pageTableSize = numPages;
 }
 
 int AddrSpace::NewPageTable(){
     pageTableLock->Acquire();
     cout << "Creating new pagetable for currentThread: " << currentThread->getName() << endl;
-    TranslationEntry* newTable = new TranslationEntry [numPages+8];
+    ExtendedTranslationEntry* newTable = new ExtendedTranslationEntry [numPages+8];
     for (unsigned int i = 0; i < numPages; i++) {
-    	newTable[i].virtualPage = pageTable[i].virtualPage;	// for now, virtual page # = phys page #
-    	newTable[i].physicalPage = pageTable[i].physicalPage;
-    	newTable[i].valid = pageTable[i].valid;
-    	newTable[i].use = pageTable[i].use;
-    	newTable[i].dirty = pageTable[i].dirty;
-    	newTable[i].readOnly = pageTable[i].readOnly;  // if the code segment was entirely on
+      newTable[i].virtualPage = pageTable[i].virtualPage; // for now, virtual page # = phys page #
+      newTable[i].physicalPage = pageTable[i].physicalPage;
+      newTable[i].valid = pageTable[i].valid;
+      newTable[i].use = pageTable[i].use;
+      newTable[i].dirty = pageTable[i].dirty;
+      newTable[i].readOnly = pageTable[i].readOnly;  // if the code segment was entirely on
       newTable[i].byteOffset = pageTable[i].byteOffset;
-    	newTable[i].diskLocation = pageTable[i].diskLocation;
-      				// a separate page, we could set its
-    					// pages to be read-only
+      newTable[i].diskLocation = pageTable[i].diskLocation;
+              // a separate page, we could set its
+              // pages to be read-only
     }
     int tempIndex = 0;
+
+    
     for (unsigned int i = numPages; i < numPages+8; i++) {
       // tempIndex = bitmap->Find();
       // if (tempIndex == -1){ //TODO: remove this clause?
@@ -322,13 +367,21 @@ int AddrSpace::NewPageTable(){
       newTable[i].readOnly = FALSE;  // if the code segment was entirely on
       newTable[i].diskLocation = NEITHER;
       newTable[i].byteOffset = -1;
-    					// a separate page, we could set its
-    					// pages to be read-only
+              // a separate page, we could set its
+              // pages to be read-only
+      /*ipt[tempIndex].virtualPage = i; // for now, virtual page # = phys page #
+      ipt[tempIndex].physicalPage = tempIndex;
+      ipt[tempIndex].valid = TRUE;
+      ipt[tempIndex].use = FALSE;
+      ipt[tempIndex].dirty = FALSE;
+      ipt[tempIndex].readOnly = FALSE;
+      ipt[tempIndex].spaceOwner = this; // extra piece of shit*/
     }
+    
     delete[] pageTable;
     pageTable = newTable;
     numPages = numPages+8;
-    RestoreState();
+    //RestoreState();
 
     int tempNum = numPages - 8 ; // TODO: FIX
     // machine->pageTable = pageTable;
@@ -352,16 +405,17 @@ void AddrSpace::DeleteCurrentThread(){
       pageTable[stackLocation + i].physicalPage = -1;
       for(int j = 0; j < TLBSize; j++){
         if(machine->tlb[j].physicalPage = stackLocation + i){
-            machine->tlb[j].valid = FALSE;
+            machine->tlb[j].valid = FALSE;    
         }
       }
     }
 
     pageTable[stackLocation + i].valid = FALSE;
-
+    
     //interrupt->SetLevel(oldLevel);
   }
     pageTableLock->Release();
+  
 }
 
 void AddrSpace::PrintPageTable(){

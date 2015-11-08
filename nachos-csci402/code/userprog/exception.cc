@@ -573,9 +573,10 @@ void ExceptionHandler(ExceptionType which) {
             }
             nameOfProcess[32] = '\0';
             OpenFile *filePointer = fileSystem->Open(nameOfProcess);
-            delete [] nameOfProcess;
+
             if (filePointer){ // check if pointer is not null
-              AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
+              AddrSpace* as = new AddrSpace(nameOfProcess); // Create new addrespace for this executable file
+              delete [] nameOfProcess; //TODO: MOVE THIS DELETE AROUND< PLS
               Thread* newThread = new Thread("ExecThread");
               newThread->space = as; //Allocate the space created to this thread's space
               processEntry = new ProcessEntry();
@@ -597,6 +598,7 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Exit:
             kernelLock->Acquire();
+            printf("-----------Exit Output: %d\n", machine->ReadRegister(4));
             //Checks for last process and last thread
             bool isLastProcessVar = isLastProcess();
             bool isLastExecutingThreadVar = isLastExecutingThread(currentThread);
@@ -705,6 +707,8 @@ void ExceptionHandler(ExceptionType which) {
 	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
 	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
 	return;
+    } else if(which == PageFaultException) {
+        HandlePageFault(machine->ReadRegister(BadVAddrReg));
     } else {
 cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<< " in " << currentThread->getName() << endl;
       interrupt->Halt();

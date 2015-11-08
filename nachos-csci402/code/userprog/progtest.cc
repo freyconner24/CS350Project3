@@ -25,15 +25,15 @@
 void
 StartProcess(char *filename)
 {
-    OpenFile *executable = fileSystem->Open(filename);
+    //OpenFile *executable = fileSystem->Open(filename);
     AddrSpace *space;
 
-    if (executable == NULL) {
-	printf("Unable to open file %s\n", filename);
-	return;
-}
+//     if (executable == NULL) {
+//  printf("Unable to open file %s\n", filename);
+//  return;
+// }
 printf("Starting User Program.\n");
-    space = new AddrSpace(executable);
+    space = new AddrSpace(filename);
 
     printf("Assigned space.\n");
     currentThread->space = space;
@@ -50,15 +50,15 @@ printf("Starting User Program.\n");
 
     printf("Saving processEntry.\n");
 
-    delete executable;			// close file
+  //  delete executable;            // close file
 
-    space->InitRegisters();		// set the initial register values
-    space->RestoreState();		// load page table register
+    space->InitRegisters();     // set the initial register values
+    space->RestoreState();      // load page table register
 
-    machine->Run();			// jump to the user progam
-    ASSERT(FALSE);			// machine->Run never returns;
-					// the address space exits
-					// by doing the syscall "exit"
+    machine->Run();         // jump to the user progam
+    ASSERT(FALSE);          // machine->Run never returns;
+                    // the address space exits
+                    // by doing the syscall "exit"
 }
 
 // Data structures needed for the console test.  Threads making
