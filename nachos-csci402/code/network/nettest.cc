@@ -92,6 +92,18 @@ struct ServerThread{
   int mailboxNum;
 };
 
+bool threadIsNull(ServerThread thread) {
+    if(thread.machineId != -1) {
+        return FALSE;
+    }
+
+    if(thread.mailboxNum != -1) {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 bool operator==(const ServerThread& t1, const ServerThread& t2) {
     if(t1.machineId != t2.machineId) {
         return false;
@@ -114,6 +126,64 @@ struct ServerLock {
     List* waitQueue;
     ServerThread lockOwner;
 };
+
+bool operator==(const ServerLock& l1, const ServerLock& l2) {
+    if(l1.deleteFlag != l2.deleteFlag) {
+        return false;
+    }
+
+    if(l1.isDeleted != l2.isDeleted) {
+        return false;
+    }
+
+    if(l1.lockStatus != l2.lockStatus) {
+        return false;
+    }
+
+    if(l1.waitQueue != l2.waitQueue) {
+        return false;
+    }
+
+    if(!(l1.lockOwner == l2.lockOwner)) {
+        return false;
+    }
+
+    return true;
+}
+
+bool lockIsNull(ServerLock lock) {
+    if(lock.deleteFlag != FALSE) {
+        return FALSE;
+    }
+
+    if(lock.isDeleted != FALSE) {
+        return FALSE;
+    }
+
+    if(lock.lockStatus != lock.FREE) {
+        return FALSE;
+    }
+
+    if(lock.waitQueue != NULL) {
+        return FALSE;
+    }
+
+    if(!threadIsNull(lock.lockOwner)) {
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+void setLockToNull(ServerLock& lock) {
+    lock.deleteFlag = FALSE;
+    lock.isDeleted = FALSE;
+
+    lock.lockStatus = lock.FREE;
+    lock.waitQueue = NULL;
+    lock.lockOwner.machineId = -1; 
+    lock.lockOwner.mailboxNum = -1; 
+}
 
 struct ServerMon {
     bool deleteFlag;
@@ -235,7 +305,7 @@ int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader
 
 
 
-void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
+void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
     }
@@ -267,7 +337,7 @@ void Acquire_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
     }
 }
 
-void Release_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
+void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
     }
@@ -312,6 +382,8 @@ void DestroyLock_server(int lockIndex) {
     if(!validateLockIndex(lockIndex)) {
         return;
     }
+
+
 }
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
@@ -346,7 +418,7 @@ int CreateCondition_server(string name, int appendNum) {
     return currentCondIndex;
 }
 
-void Wait_server(int lockIndex, int conditionIndex) {
+void Wait_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
     }
@@ -354,9 +426,33 @@ void Wait_server(int lockIndex, int conditionIndex) {
         return;
     }
 
+    ServerThread serverCurrentThread;
+    serverCurrentThread.machineId = 0;
+    serverCurrentThread.mailboxNum = mailHdr.from;
+
+    ServerLock conditionLock = serverLocks[lockIndex];
+    ServerLock *waitingLock = &(serverLocks[serverConds[conditionIndex].waitingLockIndex]);
+
+    if(lockIsNull(conditionLock))
+    {
+        return;
+    }
+    if(lockIsNull(*waitingLock))
+    {
+        //no one waiting
+        waitingLock = &conditionLock;
+    }
+    if(!(*waitingLock == conditionLock))
+    {
+        return;
+    }
+    //OK to wait
+    serverConds[conditionIndex].waitQueue->Append(&serverCurrentThread);//Hung: add myself to Condition Variable waitQueue
+    Release_server(lockIndex, pktHdr, mailHdr);
+    Acquire_server(lockIndex, pktHdr, mailHdr);
 }
 
-void Signal_server(int lockIndex, int conditionIndex) {
+void Signal_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
     }
@@ -364,9 +460,33 @@ void Signal_server(int lockIndex, int conditionIndex) {
         return;
     }
 
+    ServerLock conditionLock = serverLocks[lockIndex];
+    ServerLock *waitingLock = &(serverLocks[serverConds[conditionIndex].waitingLockIndex]);
+
+
+    if(serverConds[conditionIndex].waitQueue->IsEmpty()) //no thread waiting
+    {
+        return;
+    }
+
+    if(!(*waitingLock == conditionLock))
+    {
+        return;
+    }
+
+    //Wake up one waiting thread
+    ServerThread thread = *(ServerThread*) (serverConds[conditionIndex].waitQueue->Remove()); //remove 1 waiting thread        
+
+    serverLocks[lockIndex].lockOwner = thread;
+    Acquire_server(lockIndex, pktHdr, mailHdr);
+    
+    if(serverConds[conditionIndex].waitQueue->IsEmpty()) //waitQueue is empty
+    {
+        setLockToNull(*waitingLock);
+    }
 }
 
-void Broadcast_server(int lockIndex, int conditionIndex) {
+void Broadcast_server(int lockIndex, int conditionIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
         return;
     }
@@ -374,6 +494,23 @@ void Broadcast_server(int lockIndex, int conditionIndex) {
         return;
     }
 
+    ServerLock conditionLock = serverLocks[lockIndex];
+    ServerLock *waitingLock = &(serverLocks[serverConds[conditionIndex].waitingLockIndex]);
+
+    if(lockIsNull(conditionLock))
+    {
+        return;
+    }
+
+    if(!(*waitingLock == conditionLock))
+    {
+        return;
+    }
+
+    while(!serverConds[conditionIndex].waitQueue->IsEmpty()) //waitQueue is not empty
+    {
+        Signal_server(lockIndex, conditionIndex, pktHdr, mailHdr);
+    }
 }
 
 void DestroyCondition_server(int conditionIndex) {
@@ -513,21 +650,21 @@ void Server() {
                     break;
                     case 'W':
                         ss >> entityIndex2;
-                        Wait_server(entityIndex1, entityIndex2); //lock then CV
+                        Wait_server(entityIndex1, entityIndex2, pktHdr, mailHdr); //lock then CV
                         ss.str("");
                         ss.clear();
                         ss << "Wait_server";
                     break;
                     case 'S':
                         ss >> entityIndex2;
-                        Signal_server(entityIndex1, entityIndex2); //lock then CV
+                        Signal_server(entityIndex1, entityIndex2, pktHdr, mailHdr); //lock then CV
                         ss.str("");
                         ss.clear();
                         ss << "Signal_server";
                     break;
                     case 'B':
                         ss >> entityIndex2;
-                        Broadcast_server(entityIndex1, entityIndex2); //lock then CV
+                        Broadcast_server(entityIndex1, entityIndex2, pktHdr, mailHdr); //lock then CV
                         ss.str("");
                         ss.clear();
                         ss << "Broadcast_server";
