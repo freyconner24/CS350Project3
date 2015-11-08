@@ -278,7 +278,6 @@ void sendCreateEntityMessage(stringstream &ss, PacketHeader &pktHdr, MailHeader 
     mailHdr.to = mailHdr.from;
     mailHdr.from = clientMailbox;
     mailHdr.length = strlen(tempChar) + 1;
-
     bool success = postOffice->Send(pktHdr, mailHdr, replyBuffer);
 
     if ( !success ) {
@@ -303,9 +302,8 @@ int CreateLock_server(char* name, int appendNum, PacketHeader pktHdr, MailHeader
     return currentLockIndex;
 }
 
-
-
 void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
+    cout << lockIndex << " " << validateLockIndex(lockIndex) <<endl;
     if(!validateLockIndex(lockIndex)) {
         return;
     }
@@ -314,7 +312,7 @@ void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     serverCurrentThread.machineId = pktHdr.from; // this is essentailly the server machineId
     serverCurrentThread.mailboxNum = mailHdr.from; // this is the mailbox that the mail came from since it's equal to client mailbox
 
-    if(serverCurrentThread == serverLocks[lockIndex].lockOwner) //current thread is lock owner
+    if(serverLocks[lockIndex].lockStatus == serverLocks[lockIndex].BUSY && serverCurrentThread == serverLocks[lockIndex].lockOwner) //current thread is lock owner
     {
         return;
     }
@@ -327,9 +325,8 @@ void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
         serverLocks[lockIndex].lockOwner = serverCurrentThread; //make myself the owner
         serverLocks[lockIndex].lockOwner.machineId;
         serverLocks[lockIndex].lockOwner.mailboxNum;
-
         sendMessageToClient("You got the lock!", pktHdr, mailHdr);
-        
+
     }
     else //lock is busy
     {
@@ -339,12 +336,64 @@ void Acquire_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
 
 void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     if(!validateLockIndex(lockIndex)) {
+      cout << lockIndex << endl;
         return;
     }
 
     ServerThread serverCurrentThread;
-    serverCurrentThread.machineId = 0;
-    serverCurrentThread.mailboxNum = mailHdr.from;
+    serverCurrentThread.machineId = pktHdr.from; // this is essentailly the server machineId
+    serverCurrentThread.mailboxNum = mailHdr.from; // this is the mailbox that the mail came from since it's equal to client mailbox
+
+    if(!(serverCurrentThread == serverLocks[lockIndex].lockOwner)) //current thread is not lock owner
+    {
+        return;
+    }
+
+    pktHdr.to = serverLocks[lockIndex].lockOwner.machineId;
+    mailHdr.to = serverLocks[lockIndex].lockOwner.mailboxNum;
+
+    if (serverLocks[lockIndex].deleteFlag == TRUE){
+      serverLocks[lockIndex].isDeleted == TRUE;
+      delete serverLocks[lockIndex].waitQueue;
+      delete serverLocks[lockIndex].name;
+      sendMessageToClient("You released the lock! DeleteFlag is true so the lock is deleted.", pktHdr, mailHdr);
+
+    }
+    else if(!serverLocks[lockIndex].waitQueue->IsEmpty()) //lock waitQueue is not empty
+    {
+        ServerThread thread = *(ServerThread*) (serverLocks[lockIndex].waitQueue->Remove()); //remove 1 waiting thread
+        serverLocks[lockIndex].lockOwner = thread; //make them lock owner
+        sendMessageToClient("You released the lock! Another thread has taken it", pktHdr, mailHdr);
+    }
+    else
+    {
+        serverLocks[lockIndex].lockStatus = serverLocks[lockIndex].FREE; //make lock available
+        serverLocks[lockIndex].lockOwner.machineId = -1; //unset ownership
+        serverLocks[lockIndex].lockOwner.mailboxNum = -1; //unset ownership
+        sendMessageToClient("You released the lock!", pktHdr, mailHdr);
+    }
+
+
+    /*char* data = "You released the lock!";
+    mailHdr.length = strlen(data) + 1;
+    cout << pktHdr.to << ' ' << mailHdr.to << ' '<< mailHdr.from << ' '<< mailHdr.length<< endl;
+
+    bool success = postOffice->Send(pktHdr, mailHdr, data);
+
+    if ( !success ) {
+        printf("Release::The second postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+        interrupt->Halt();
+    }*/
+}
+
+void DestroyLock_server(int lockIndex, PacketHeader pktHdr, MailHeader mailHdr) {
+    if(!validateLockIndex(lockIndex)) {
+        return;
+    }
+
+    ServerThread serverCurrentThread;
+    serverCurrentThread.machineId = pktHdr.from; // this is essentailly the server machineId
+    serverCurrentThread.mailboxNum = mailHdr.from; // this is the mailbox that the mail came from since it's equal to client mailbox
 
     if(!(serverCurrentThread == serverLocks[lockIndex].lockOwner)) //current thread is not lock owner
     {
@@ -355,35 +404,27 @@ void Release_server(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr) {
     {
         ServerThread thread = *(ServerThread*) (serverLocks[lockIndex].waitQueue->Remove()); //remove 1 waiting thread
         serverLocks[lockIndex].lockOwner = thread; //make them lock owner
-        
-        sendMessageToClient("You got the lock!", pktHdr, mailHdr);
-
-        char* data = "You got the lock!";
-
-        pktHdr.to = serverLocks[lockIndex].lockOwner.machineId;
-        mailHdr.to = serverLocks[lockIndex].lockOwner.mailboxNum;
-        mailHdr.length = strlen(data) + 1;
-        bool success = postOffice->Send(pktHdr, mailHdr, data);
-
-        if ( !success ) {
-            printf("Release::The second postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
-            interrupt->Halt();
-        }
     }
     else
     {
+        pktHdr.to = serverLocks[lockIndex].lockOwner.machineId;
+        mailHdr.to = serverLocks[lockIndex].lockOwner.mailboxNum;
         serverLocks[lockIndex].lockStatus = serverLocks[lockIndex].FREE; //make lock available
         serverLocks[lockIndex].lockOwner.machineId = -1; //unset ownership
         serverLocks[lockIndex].lockOwner.mailboxNum = -1; //unset ownership
     }
-}
+    sendMessageToClient("You destroyed the lock!", pktHdr, mailHdr);
 
-void DestroyLock_server(int lockIndex) {
-    if(!validateLockIndex(lockIndex)) {
-        return;
+    char* data = "You destroyed the lock!";
+    mailHdr.length = strlen(data) + 1;
+    cout << pktHdr.to << ' ' << mailHdr.to << ' '<< mailHdr.from << ' '<< mailHdr.length<< endl;
+
+    bool success = postOffice->Send(pktHdr, mailHdr, data);
+
+    if ( !success ) {
+        printf("Release::The second postOffice Send failed. You must not have the other Nachos running. Terminating Nachos.\n");
+        interrupt->Halt();
     }
-
-
 }
 
 // ++++++++++++++++++++++++++++ MVs ++++++++++++++++++++++++++++
@@ -540,7 +581,9 @@ void DestroyCondition_server(int conditionIndex) {
 void Server() {
     cout << "Server()" << endl;
     char sysCode1, sysCode2;
-
+    for (int i = 0; i <MAX_MON_COUNT; ++i){
+      serverLocks[i].waitQueue = new List();
+    }
     PacketHeader pktHdr; // Pkt is hardware level // just need to know the machine->Id at command line
     MailHeader mailHdr; // Mail
     char buffer[MaxMailSize];
@@ -603,7 +646,7 @@ void Server() {
                         ss << "Release_server";
                     break;
                     case 'D':
-                        DestroyLock_server(entityIndex1);
+                        DestroyLock_server(entityIndex1, pktHdr, mailHdr);
                         ss.str("");
                         ss.clear();
                         ss << "DestroyLock_server";

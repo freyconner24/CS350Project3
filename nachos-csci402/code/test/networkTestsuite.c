@@ -7,7 +7,7 @@ int main(){
 	lock2 = CreateLock("SoloLock", 8, 2);
 	Acquire(lock2);
 	DestroyLock(lock2);
+	Acquire(lock2);
 	Release(lock1);
-
 	Exit(1);
 }
