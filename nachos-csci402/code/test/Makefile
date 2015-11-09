@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2
+all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2 condServerInitTest condServer_t2 condServer_t1 condServer_t3 condServer_t4 condInit
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -129,6 +129,42 @@ lockInvalidTest.o: lockInvalidTest.c
 lockInvalidTest: lockInvalidTest.o start.o
 				$(LD) $(LDFLAGS) start.o lockInvalidTest.o -o lockInvalidTest.coff
 				../bin/coff2noff lockInvalidTest.coff lockInvalidTest
+
+condServerInitTest.o: condServerInitTest.c
+				$(CC) $(CFLAGS) -c condServerInitTest.c
+condServerInitTest: condServerInitTest.o start.o
+				$(LD) $(LDFLAGS) start.o condServerInitTest.o -o condServerInitTest.coff
+				../bin/coff2noff condServerInitTest.coff condServerInitTest
+
+condServer_t2.o: condServer_t2.c
+				$(CC) $(CFLAGS) -c condServer_t2.c
+condServer_t2: condServer_t2.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t2.o -o condServer_t2.coff
+				../bin/coff2noff condServer_t2.coff condServer_t2
+
+condServer_t1.o: condServer_t1.c
+				$(CC) $(CFLAGS) -c condServer_t1.c
+condServer_t1: condServer_t1.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t1.o -o condServer_t1.coff
+				../bin/coff2noff condServer_t1.coff condServer_t1
+
+condInit.o: condInit.c
+				$(CC) $(CFLAGS) -c condInit.c
+condInit: condInit.o start.o
+				$(LD) $(LDFLAGS) start.o condInit.o -o condInit.coff
+				../bin/coff2noff condInit.coff condInit
+
+condServer_t3.o: condServer_t3.c
+				$(CC) $(CFLAGS) -c condServer_t3.c
+condServer_t3: condServer_t3.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t3.o -o condServer_t3.coff
+				../bin/coff2noff condServer_t3.coff condServer_t3
+
+condServer_t4.o: condServer_t4.c
+				$(CC) $(CFLAGS) -c condServer_t4.c
+condServer_t4: condServer_t4.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t4.o -o condServer_t4.coff
+				../bin/coff2noff condServer_t4.coff condServer_t4
 
 clean:
 	rm -f *.o *.coff
