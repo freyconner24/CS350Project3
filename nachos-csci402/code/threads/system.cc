@@ -147,6 +147,7 @@ Initialize(int argc, char **argv)
 	    argCount = 2;
 	}
 #endif
+    //Handling and saving the -P argument which determines page eviction policy
     else if (!strcmp(*argv, "-P")) {
         ASSERT(argc > 1);
         char* fifoOrRandString = (*(argv + 1));

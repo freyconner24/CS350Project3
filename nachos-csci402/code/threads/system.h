@@ -79,12 +79,12 @@ extern int totalThreadCount;
 extern BitMap* bitmap;
 extern ProcessTable* processTable;
 extern int threadArgs[500];
-extern int tlbCounter;
-extern IptEntry ipt[NumPhysPages];
-extern OpenFile *swapfile;
-extern BitMap* swapfileBitmap;
-extern List* swapQueue;
-extern bool runWithFIFO;
+extern int tlbCounter; 				//Counter to iterate through the TLB replacement policy
+extern IptEntry ipt[NumPhysPages]; //IPT instantiation
+extern OpenFile *swapfile;			//SWAP file handler
+extern BitMap* swapfileBitmap;		//SWAP file bitmap to populate it
+extern List* swapQueue;				//List to be used as swap queue for FIFO eviction policy
+extern bool runWithFIFO;			//Boolean to indicate whether eviction policy is FIFO or random
 
 #ifdef USER_PROGRAM
 #include "machine.h"

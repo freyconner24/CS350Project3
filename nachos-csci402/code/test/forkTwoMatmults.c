@@ -1,5 +1,14 @@
+/* forkTwoMatmults.c 
+ *    Test that forking two threads work.
 
+ *    Intended to test having two threads running in the same address
+ *	  space for the MMU.
+ *    matmultOne and matmultTwo are copies of the matrix multiplication
+ *	  in the matmult.c program.
+ */
 #include "syscall.h"
+
+
 
 #define Dim 	20	/* sum total of the arrays doesn't fit in 
 			 * physical memory 

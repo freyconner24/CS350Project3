@@ -30,12 +30,13 @@ struct UserLock;
 struct UserCond;
 class ProcessEntry;
 enum DiskLocation {SWAP, EXECUTABLE, NEITHER}; // 0 - SWAP, 1 - EXECUTABLE, 2 - NEITHER
+                                                //An ENUM to indicate the location of the instruction
 
-
+//An extended translation entry used for the page table, extra fields needed for MMU
 class ExtendedTranslationEntry : public TranslationEntry{
   public:
-    int byteOffset;
-    DiskLocation diskLocation;
+    int byteOffset; //Byteoffset for instruction in the executable or swapfile, stored so we don't need to recalculate it everytime
+    DiskLocation diskLocation; //A variable to indicate where the page entry is located on the disk
 };
 
 class AddrSpace {
@@ -70,12 +71,10 @@ class AddrSpace {
     Lock* condsLock;
     int StackTopForMain;
     ExtendedTranslationEntry  *pageTable;   // Assume linear page table translation
-    OpenFile *executable;
+    OpenFile *executable; //A handler for the open file associated with the address space
  private:
-                    // for now!
     Lock *pageTableLock;
-    unsigned int numPages;      // Number of pages in the virtual
-                    // address space
+    unsigned int numPages;      // Number of pages in the virtual address space 
     ProcessEntry* processEntry;
 
 };

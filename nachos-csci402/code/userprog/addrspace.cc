@@ -137,10 +137,8 @@ AddrSpace::AddrSpace(OpenFile *filename) : fileTable(MaxOpenFiles) {
 executable = filename;
 if (executable == NULL) {
 printf("Unable to open file\n");
-return; //TODO: what behaviour when file is invalid
+return; 
 }
-
-
 
     executable->ReadAt((char *)&noffH, sizeof(noffH), 0);
     if ((noffH.noffMagic != NOFFMAGIC) &&
@@ -151,100 +149,36 @@ return; //TODO: what behaviour when file is invalid
     size = noffH.code.size + noffH.initData.size + noffH.uninitData.size ;
       numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
 
-    // size = noffH.code.size + noffH.initData.size {
-    //    noffH.uninitData.size ;
-    //   numPages = divRoundUp(size, PageSize) + divRoundUp(UserStackSize,PageSize);
-    // /
-    // else{
-    //   /
-    // }}/ we need to increase the size
-    // to leave room for the stack
-    //size = numPages * PageSize;
-
-    //TODO: delete asssert? executable numPages are very likely to be larger than NumPhysPages (32) for project 3
-    //ASSERT(numPages <= NumPhysPages);   // check we're not trying
-            // to run anything too big --
-            // at least until we have
-            // virtual memory
 
     DEBUG('a', "Initializing address space, num pages %d, size %d\n",
           numPages, size);
     int tempIndex = 0;
-// first, set up the translation
-   pageTableLock->Acquire();
-    pageTable = new ExtendedTranslationEntry[numPages]; //TODO: ?? Is NumPhysPages correct size?????????????
-
+// Initializing and reading into process' pagetable
+    pageTableLock->Acquire();
+    pageTable = new ExtendedTranslationEntry[numPages]; 
     processCount++;
     processId = processCount;
-
     StackTopForMain =  divRoundUp(size, PageSize);
-
-
-    // printf("AddrSpace::numPages: %d\n", numPages);
+    //Populating page table
     for (i = 0; i < numPages; i++) {
-        //cout << "AddrSpace::numPage for(...): " << i << endl;
-        // tempIndex = bitmap->Find();
-        // if (tempIndex == -1){
-        //     DEBUG('g', "PAGETABLE TOO BIG");
-        //     break;
-        // }
-      pageTable[i].virtualPage = i; // for now, virtual page # = phys page #
-      //pageTable[i].physicalPage = tempIndex;
+      pageTable[i].virtualPage = i; 
       pageTable[i].valid = FALSE;
       pageTable[i].use = FALSE;
       pageTable[i].dirty = FALSE;
-      pageTable[i].readOnly = FALSE;  // if the code segment was entirely on
+      pageTable[i].readOnly = FALSE;  
       pageTable[i].byteOffset = 40 + pageTable[i].virtualPage * PageSize;
+      //If the page is in the code segment or initialized data, it will be read from the executable
       if(i < divRoundUp(noffH.code.size + noffH.initData.size, PageSize) ) {
-        // cout << "-------if" << endl;
         pageTable[i].diskLocation = EXECUTABLE;
       }else{
-        // cout << "-------else" << endl;
+        //Page is not in code or initalized data segment, therefore it's not going to be load from disk
         pageTable[i].diskLocation = NEITHER;
       }
-          // a separate page, we could set its
-          // pages to be read-only
-      // ipt[tempIndex].virtualPage = i;  // for now, virtual page # = phys page #
-      // ipt[tempIndex].physicalPage = tempIndex;
-      // ipt[tempIndex].valid = TRUE;
-      // ipt[tempIndex].use = FALSE;
-      // ipt[tempIndex].dirty = FALSE;
-      // ipt[tempIndex].readOnly = FALSE;
-      // ipt[tempIndex].spaceOwner = this; // extra piece of shit
 
 
-//          processTable->processEntries[processId]->stackLocations[currentThread->id] = StackTopForMain; //Assigns arbitrarily to main for every exec
-
-
-//        executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]),
-  //          PageSize, 40 + pageTable[i].virtualPage * PageSize);
-        //where we want to read it to, how much do we want to copy, where we want to read it from
     }
 
-// zero out the entire address space, to zero the unitialized data segment
-// and the stack segment
-    //bzero(machine->mainMemory, size);
-
-// then, copy in the code and data segments into memory
-    /*if (noffH.code.size > 0) {
-        DEBUG('a', "Initializing code segment, at 0x%x, size %d\n",
-      noffH.code.virtualAddr, noffH.code.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.code.virtualAddr]),
-      noffH.code.size, noffH.code.inFileAddr);
-    }
-    if (noffH.initData.size > 0) {
-        DEBUG('a', "Initializing data segment, at 0x%x, size %d\n",
-      noffH.initData.virtualAddr, noffH.initData.size);
-        executable->ReadAt(&(machine->mainMemory[noffH.initData.virtualAddr]),
-      noffH.initData.size, noffH.initData.inFileAddr);
-    }*/
-
-    //TODO:check if needed
-    //machine->pageTable = pageTable;
-    //machine->pageTableSize = numPages;
-
-//  cout << "First thread in new process stack location: " << processTable->processEntries[processId]->stackLocations[currentThread->id] << ", Number of pages for process: " << numPages << endl;
-    pageTableLock->Release();
+ pageTableLock->Release();
 }
 
 //----------------------------------------------------------------------
@@ -256,15 +190,15 @@ return; //TODO: what behaviour when file is invalid
 
 AddrSpace::~AddrSpace()
 {
+  //Deleteing the pagetable and closing the executable
   delete executable;
   delete pageTable;
-  // for (int i = 0 ; i < numPages ; i++){
-  //   if(pageTable[i].physicalPage != -1){
-  //     bitmap->Clear(pageTable[i].physicalPage);
-
-  //   }
-  // }
-  // delete pageTable;
+  //Checking the IPT and clearing the entries from this process
+  for (int i = 0; i < NumPhysPages; i++){
+    if(ipt[i].spaceOwner == processId){
+      bitmap->Clear(ipt[i].physicalPage);
+    }
+  }
   // delete [] userLocks;
   // delete [] userConds;
 }
@@ -311,6 +245,7 @@ AddrSpace::InitRegisters()
 
 void AddrSpace::SaveState()
 {
+    //Invalidating TLB on context switch
     for(int i = 0; i < TLBSize; ++i) {
         if(machine->tlb[i].valid){
           ipt[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
@@ -330,8 +265,7 @@ void AddrSpace::SaveState()
 
 void AddrSpace::RestoreState()
 {
-    // machine->pageTable = pageTable;
-    // machine->pageTableSize = numPages;
+    //Invalidating TLB on context switch
     for(int i = 0; i < TLBSize; ++i) {
         if(machine->tlb[i].valid){
           ipt[machine->tlb[i].physicalPage].dirty = machine->tlb[i].dirty;
@@ -343,9 +277,10 @@ void AddrSpace::RestoreState()
 }
 
 int AddrSpace::NewPageTable(){
+    //Expanding the pagetable, gets called on Fork
     pageTableLock->Acquire();
-    // cout << "Creating new pagetable for currentThread: " << currentThread->getName() << endl;
     ExtendedTranslationEntry* newTable = new ExtendedTranslationEntry [numPages+8];
+    //Copying the old pagetable into new pagetable
     for (unsigned int i = 0; i < numPages; i++) {
       newTable[i].virtualPage = pageTable[i].virtualPage; // for now, virtual page # = phys page #
       newTable[i].physicalPage = pageTable[i].physicalPage;
@@ -355,19 +290,9 @@ int AddrSpace::NewPageTable(){
       newTable[i].readOnly = pageTable[i].readOnly;  // if the code segment was entirely on
       newTable[i].byteOffset = pageTable[i].byteOffset;
       newTable[i].diskLocation = pageTable[i].diskLocation;
-              // a separate page, we could set its
-              // pages to be read-only
     }
-    int tempIndex = 0;
-
-    
+    //Populating the new stack added to the pagetable
     for (unsigned int i = numPages; i < numPages+8; i++) {
-      // tempIndex = bitmap->Find();
-      // if (tempIndex == -1){ //TODO: remove this clause?
-        // DEBUG('g', "PAGETABLE TOO BIG");
-        // interrupt->Halt();
-      // }
-
 
       newTable[i].virtualPage = i;
       newTable[i].physicalPage = -1;
@@ -377,37 +302,24 @@ int AddrSpace::NewPageTable(){
       newTable[i].readOnly = FALSE;  // if the code segment was entirely on
       newTable[i].diskLocation = NEITHER;
       newTable[i].byteOffset = -1;
-              // a separate page, we could set its
-              // pages to be read-only
-      /*ipt[tempIndex].virtualPage = i; // for now, virtual page # = phys page #
-      ipt[tempIndex].physicalPage = tempIndex;
-      ipt[tempIndex].valid = TRUE;
-      ipt[tempIndex].use = FALSE;
-      ipt[tempIndex].dirty = FALSE;
-      ipt[tempIndex].readOnly = FALSE;
-      ipt[tempIndex].spaceOwner = this; // extra piece of shit*/
     }
     
     delete[] pageTable;
     pageTable = newTable;
     numPages = numPages+8;
     //RestoreState();
-
-    int tempNum = numPages - 8 ; // TODO: FIX
-    // machine->pageTable = pageTable;
-    // machine->pageTableSize = numPages;
-    //machine->WriteRegister(StackReg, numPages * PageSize - 16);
-    PrintPageTable();
+    int tempNum = numPages - 8 ; 
     pageTableLock->Release();
-    return tempNum; //TODO: FIX the pagetable search
+    return tempNum; 
 }
 
+//Removing a thread from a process
 void AddrSpace::DeleteCurrentThread(){
   //IntStatus oldLevel = interrupt->SetLevel(IntOff);
   pageTableLock->Acquire();
   --threadCount;
   int stackLocation = processTable->processEntries[processId]->stackLocations[currentThread->id];
-  //cout << "In DeleteCurrentThread, stackLocation: " << stackLocation << endl;
+  //Clearing stack's entries in the IPT if there are any, and likewise with the TLB
   for (int i = 0; i < UserStackSize / PageSize; ++i){ // UserStackSize / PageSize 's gonna be 8 for ass2
       //Return physical page
     if(pageTable[stackLocation + i].physicalPage != -1){
@@ -427,7 +339,7 @@ void AddrSpace::DeleteCurrentThread(){
     pageTableLock->Release();
   
 }
-
+//Helper function for development
 void AddrSpace::PrintPageTable(){
   for(unsigned int i = 0 ; i < numPages ; i++){
     DEBUG('a', " PageTable virtual address: %d, physical address  %d!  isValid: %d\n",

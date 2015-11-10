@@ -1,5 +1,11 @@
 /* forkTwoSorts.c 
- * A test to test two forks of the Sort function
+ *    Test that forking two threads work.
+
+ *    Intended to test having two threads running in the same address
+ *    space for the MMU.
+ *    sortOne and sortTwo are copies of the sorting algorithm
+ *    in the sort.c program.
+ *    These forks are more memory swapping intensive.
  */
 
 #include "syscall.h"

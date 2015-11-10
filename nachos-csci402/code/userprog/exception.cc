@@ -355,137 +355,96 @@ bool isLastProcess() {
         return false;
     }
 }
-
+//Handler for a full memory, evicts a page according to a chosen policy, an updates the pagetable properly
 int handleMemoryFull(){
-    // printf("Entering handleMemoryFull()\n");
-    // cout << "Got here 3" << endl;
-    ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
-    // if(/*something that indicates FIFO replacement*/){ //TODO: FIFO or random replacement
-    //}else if(/*something that indicates random replacement*/){
-
     int pageToBoot;
+    //Selects a page to evict, according to the selected policy; FIFO or randomly
     if(runWithFIFO){
         pageToBoot = (int)swapQueue->Remove();
-        // cout << "LE FIFE Booting FIFO page number: " << pageToBoot << endl;
     }else{
         pageToBoot = rand () % NumPhysPages;
-        // cout << "LE FIFE Booting RAND page number: " << pageToBoot << endl;
     }
-
+    //Selects the proper pagetable to update, accordin to the owner of the to-be-evicted page
+    ExtendedTranslationEntry* pageTable = processTable->processEntries[ipt[pageToBoot].spaceOwner]->space->pageTable;
+    //Checking the presence of evicted page in the TLB and propagating the dirty bit
     for (int i = 0; i < TLBSize; i++){
         if(machine->tlb[i].virtualPage == ipt[pageToBoot].virtualPage && 
-            ipt[pageToBoot].spaceOwner == currentThread->space->processId && machine->tlb[i].valid){
+            ipt[pageToBoot].spaceOwner == processTable->processEntries[ipt[pageToBoot].spaceOwner]->spaceId && 
+            machine->tlb[i].valid){
             machine->tlb[i].valid = FALSE;
             if(machine->tlb[i].dirty){
                 ipt[pageToBoot].dirty = TRUE;
             }
         }
     }
-
-    if(ipt[pageToBoot].dirty){ // TODO: should be pageTable?
-        // cout << "Got here 3.1" << endl;
+    //Storing the to-be-evicted page into the swapfile, if the dirty bit is set, and updating the connected pagetable
+    if(ipt[pageToBoot].dirty){ 
         int swapLocationPPN = swapfileBitmap->Find();
-        // cout << "Got here 3.1.1" << endl;
         swapfile->WriteAt(&(machine->mainMemory[pageToBoot * PageSize]), PageSize, PageSize * swapLocationPPN);
-        // cout << "Got here 3.1.2" << endl;
         pageTable[ipt[pageToBoot].virtualPage].diskLocation = SWAP;
-        // cout << "Got here 3.1.3" << endl;
         pageTable[ipt[pageToBoot].virtualPage].byteOffset = PageSize * swapLocationPPN;
-        // pageTable[ipt[pageToBoot].virtualPage].valid = FALSE;
     }
     pageTable[ipt[pageToBoot].virtualPage].physicalPage = -1;
-    // cout << "Got here 3.2" << endl;
     return pageToBoot;
 }
 
+//Second step in MMU, allocating a physical memory page
 int handleIPTMiss(int virtualPage){
-    int ppn = bitmap->Find();  //Find a physical page of memory
-    // printf("Entering handleIPTMiss(virtualPage: %d)\n", virtualPage);
+    int ppn = bitmap->Find();  //Find an available physical page of memory
     ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
-    // cout << "Got here 2" << endl;
-    bool setDirty = FALSE;
+    //Handler when memory is full to evict a page from memory
     if ( ppn == -1 ) {
-        // cout << "Got here 2.1" << endl;
         ppn = handleMemoryFull();
     }
-    // cout << "Contents of IPT: " << endl;
-    for(int i = 0; i < NumPhysPages; ++i) {
-        // printf("virtual page: [%d] = disk %d, ipt.vpn %d\n", virtualPage, pageTable[ipt[i].virtualPage].diskLocation, ipt[i].virtualPage);
-    }
+    //Loads the needed page from the respective disk location, or not at all
     if(pageTable[virtualPage].diskLocation == EXECUTABLE){
-        // cout << "Got here 2.3" << endl;
         currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
-        //executable->ReadAt(&(machine->mainMemory[pageTable[i].physicalPage * PageSize]), PageSize, 40 + pageTable[i].virtualPage * PageSize);
-
     }else if(pageTable[virtualPage].diskLocation == SWAP){
-        // cout << "Got here 2.4" << endl;
-        //TODO: swap file handling
         swapfile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
-        setDirty = TRUE;
-        // cout << "Got here 2.5" << endl;
-        // pagetTable[virtualPage]->diskLocation = ??;
         //NOTE: could add Clear from swapfile, cause now the page is in main memory
     }
-
-    // cout << "Got here 2.6" << endl;
+    //If FIFO replacement policy was chosen, this will append the newly freed up page to the FIFO queue
     if(runWithFIFO){
-        // cout << "Appending to swapqueue num: " << ppn << endl;
         swapQueue->Append((void*)ppn);
     }
     
+    //Updating the pagetable and IPT
     ipt[ppn].virtualPage = virtualPage;
     ipt[ppn].physicalPage = ppn;
     ipt[ppn].valid = TRUE;
-    ipt[ppn].use = FALSE;
-    // ipt[ppn].dirty = setDirty;
-    ipt[ppn].readOnly = FALSE;
     ipt[ppn].spaceOwner = currentThread->space->processId;
-
     pageTable[virtualPage].physicalPage = ppn;
     pageTable[virtualPage].virtualPage = virtualPage;
     pageTable[virtualPage].valid = TRUE;
-    // pageTable[virtualPage].use = FALSE;
-    // pageTable[virtualPage].dirty = setDirty;
-    pageTable[virtualPage].readOnly = FALSE;
-
     return ppn;
 }
 
+//First step in MMU, looking through the IPT and looking for needed virtual address
 void HandlePageFault(int virtualAddress) {
-    int virtualPage = virtualAddress / PageSize;
-    // printf("Entering HandlePageFault(virtualAddress: %d)\n", virtualAddress);
-    // printf("virtualPage = virtualAddress / PageSize: %d\n", virtualPage);
+    int virtualPage = virtualAddress / PageSize; //Translates virtual address to the corresponding virtual page
     ++tlbCounter;
     TranslationEntry* tlb = machine->tlb;
-
     int ppn = -1;
-
     IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
-
+    //Search through the IPT, returns the physical page number if virtual page loaded into memory
     for(int i = 0; i < NumPhysPages; ++i) {
-        //Found the physical page we need
-        //cout << "ipt[i].virtualPage == virtualPage: " << ipt[i].virtualPage << " == " << virtualPage << endl;
-        //cout << "ipt[i].spaceOwner == currentThread->space: " << ipt[i].spaceOwner << " == " << currentThread->space << endl;
-        //cout << "ipt[i].valid: " << ipt[i].valid << endl;
         if(ipt[i].virtualPage == virtualPage &&
             ipt[i].spaceOwner == currentThread->space->processId &&
             ipt[i].valid){
             ppn = i;
-            // cout << "Got here 1 || ppn: " << ppn << endl;
             break;
         }
     }
+    //Handler if the needed virtual page is not in memory/IPT 
     if (ppn == -1) {
-        //cout << "Got here 1.1" << endl
         ppn = handleIPTMiss( virtualPage );
     }
 
-    //cout << "Got here 1.2" << endl;
-
-    if(tlb[tlbCounter % 4].valid) {//TODO: check index
+    //Propagates the dirty bit before the TLB is modified
+    if(tlb[tlbCounter % 4].valid) {
         ipt[tlb[tlbCounter % 4].physicalPage].dirty = tlb[tlbCounter % 4].dirty;
     }
-
+    //Loads the required virtual page into the TLB
     tlb[tlbCounter % 4].virtualPage   = ipt[ppn].virtualPage;
     tlb[tlbCounter % 4].physicalPage  = ipt[ppn].physicalPage;
     tlb[tlbCounter % 4].valid         = ipt[ppn].valid;
@@ -539,20 +498,10 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Yield:
             DEBUG('a', "Yield syscall.\n");
-            // kernelLock->Acquire();
-            // ProcessEntry* processEntry = processTable->processEntries[currentThread->space->processId];
-            // processEntry->sleepThreadCount += 1;
-            // processEntry->awakeThreadCount -= 1;
-            // kernelLock->Release();
-
             currentThread->Yield();
-
-            // kernelLock->Acquire();
-            // processEntry->sleepThreadCount -= 1;
-            // processEntry->awakeThreadCount += 1;
-            // kernelLock->Release();
             break;
         case SC_Fork:
+            //Fork creates a new thread in the same address space
             kernelLock->Acquire();
             DEBUG('a', "Fork syscall.\n");
             virtualAddress = machine->ReadRegister(4);
@@ -592,8 +541,6 @@ void ExceptionHandler(ExceptionType which) {
               processTable->processEntries[processCount]->space = as;
               processTable->processEntries[processCount]->spaceId = processCount;
               processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id] = as->StackTopForMain;
-              //cout << "Start stack location for Exec_thread: " << processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id]<< endl;
-
               rv = newThread->space->spaceId;
               newThread->Fork((VoidFunctionPtr)exec_thread, 0);
               kernelLock->Release();
@@ -606,6 +553,7 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Exit:
             kernelLock->Acquire();
+            //Prints the result of the exit to the user program
             printf("-----------Exit Output: %d\n", machine->ReadRegister(4));
             //Checks for last process and last thread
             bool isLastProcessVar = isLastProcess();
@@ -717,7 +665,7 @@ void ExceptionHandler(ExceptionType which) {
 	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
 	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
 	return;
-    } else if(which == PageFaultException) {
+    } else if(which == PageFaultException) { //Catches the PageFaultException if exceptions are raised
         HandlePageFault(machine->ReadRegister(BadVAddrReg));
     } else {
 cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<< " in " << currentThread->getName() << endl;
