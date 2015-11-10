@@ -40,7 +40,7 @@ class ExtendedTranslationEntry : public TranslationEntry{
 
 class AddrSpace {
   public:
-    AddrSpace(char *filename);  // Create an address space,
+    AddrSpace(OpenFile *filename);  // Create an address space,
                     // initializing it with the program
                     // stored in the file "executable"
     ~AddrSpace();           // De-allocate an address space

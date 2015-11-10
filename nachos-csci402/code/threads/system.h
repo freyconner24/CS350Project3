@@ -63,7 +63,7 @@ class ProcessTable {
 
 class IptEntry: public TranslationEntry{
 	public:
-		AddrSpace* spaceOwner;
+		SpaceId spaceOwner;
 };
 
 extern Thread *currentThread;			// the thread holding the CPU

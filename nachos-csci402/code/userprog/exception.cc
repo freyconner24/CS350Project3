@@ -357,7 +357,7 @@ bool isLastProcess() {
 }
 
 int handleMemoryFull(){
-    printf("Entering handleMemoryFull()\n");
+    // printf("Entering handleMemoryFull()\n");
     // cout << "Got here 3" << endl;
     ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
     // if(/*something that indicates FIFO replacement*/){ //TODO: FIFO or random replacement
@@ -366,14 +366,15 @@ int handleMemoryFull(){
     int pageToBoot;
     if(runWithFIFO){
         pageToBoot = (int)swapQueue->Remove();
-        cout << "LE FIFE Booting FIFO page number: " << pageToBoot << endl;
+        // cout << "LE FIFE Booting FIFO page number: " << pageToBoot << endl;
     }else{
         pageToBoot = rand () % NumPhysPages;
-        cout << "LE FIFE Booting RAND page number: " << pageToBoot << endl;
+        // cout << "LE FIFE Booting RAND page number: " << pageToBoot << endl;
     }
 
     for (int i = 0; i < TLBSize; i++){
-        if(machine->tlb[i].physicalPage == pageToBoot && ipt[pageToBoot].spaceOwner == currentThread->space){
+        if(machine->tlb[i].virtualPage == ipt[pageToBoot].virtualPage && 
+            ipt[pageToBoot].spaceOwner == currentThread->space->processId && machine->tlb[i].valid){
             machine->tlb[i].valid = FALSE;
             if(machine->tlb[i].dirty){
                 ipt[pageToBoot].dirty = TRUE;
@@ -390,6 +391,7 @@ int handleMemoryFull(){
         pageTable[ipt[pageToBoot].virtualPage].diskLocation = SWAP;
         // cout << "Got here 3.1.3" << endl;
         pageTable[ipt[pageToBoot].virtualPage].byteOffset = PageSize * swapLocationPPN;
+        // pageTable[ipt[pageToBoot].virtualPage].valid = FALSE;
     }
     pageTable[ipt[pageToBoot].virtualPage].physicalPage = -1;
     // cout << "Got here 3.2" << endl;
@@ -401,10 +403,14 @@ int handleIPTMiss(int virtualPage){
     // printf("Entering handleIPTMiss(virtualPage: %d)\n", virtualPage);
     ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
     // cout << "Got here 2" << endl;
-
+    bool setDirty = FALSE;
     if ( ppn == -1 ) {
         // cout << "Got here 2.1" << endl;
         ppn = handleMemoryFull();
+    }
+    // cout << "Contents of IPT: " << endl;
+    for(int i = 0; i < NumPhysPages; ++i) {
+        // printf("virtual page: [%d] = disk %d, ipt.vpn %d\n", virtualPage, pageTable[ipt[i].virtualPage].diskLocation, ipt[i].virtualPage);
     }
     if(pageTable[virtualPage].diskLocation == EXECUTABLE){
         // cout << "Got here 2.3" << endl;
@@ -415,28 +421,31 @@ int handleIPTMiss(int virtualPage){
         // cout << "Got here 2.4" << endl;
         //TODO: swap file handling
         swapfile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
-
+        setDirty = TRUE;
         // cout << "Got here 2.5" << endl;
         // pagetTable[virtualPage]->diskLocation = ??;
         //NOTE: could add Clear from swapfile, cause now the page is in main memory
     }
 
     // cout << "Got here 2.6" << endl;
-    cout << "Appending to swapqueue num: " << ppn << endl;
-    swapQueue->Append((void*)ppn);
+    if(runWithFIFO){
+        // cout << "Appending to swapqueue num: " << ppn << endl;
+        swapQueue->Append((void*)ppn);
+    }
+    
     ipt[ppn].virtualPage = virtualPage;
     ipt[ppn].physicalPage = ppn;
     ipt[ppn].valid = TRUE;
     ipt[ppn].use = FALSE;
-    ipt[ppn].dirty = FALSE;
+    // ipt[ppn].dirty = setDirty;
     ipt[ppn].readOnly = FALSE;
-    ipt[ppn].spaceOwner = currentThread->space; // extra piece of shit
+    ipt[ppn].spaceOwner = currentThread->space->processId;
 
     pageTable[virtualPage].physicalPage = ppn;
     pageTable[virtualPage].virtualPage = virtualPage;
     pageTable[virtualPage].valid = TRUE;
-    pageTable[virtualPage].use = FALSE;
-    pageTable[virtualPage].dirty = FALSE;
+    // pageTable[virtualPage].use = FALSE;
+    // pageTable[virtualPage].dirty = setDirty;
     pageTable[virtualPage].readOnly = FALSE;
 
     return ppn;
@@ -459,7 +468,7 @@ void HandlePageFault(int virtualAddress) {
         //cout << "ipt[i].spaceOwner == currentThread->space: " << ipt[i].spaceOwner << " == " << currentThread->space << endl;
         //cout << "ipt[i].valid: " << ipt[i].valid << endl;
         if(ipt[i].virtualPage == virtualPage &&
-            ipt[i].spaceOwner == currentThread->space &&
+            ipt[i].spaceOwner == currentThread->space->processId &&
             ipt[i].valid){
             ppn = i;
             // cout << "Got here 1 || ppn: " << ppn << endl;
@@ -530,18 +539,18 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Yield:
             DEBUG('a', "Yield syscall.\n");
-            kernelLock->Acquire();
-            ProcessEntry* processEntry = processTable->processEntries[currentThread->space->processId];
-            processEntry->sleepThreadCount += 1;
-            processEntry->awakeThreadCount -= 1;
-            kernelLock->Release();
+            // kernelLock->Acquire();
+            // ProcessEntry* processEntry = processTable->processEntries[currentThread->space->processId];
+            // processEntry->sleepThreadCount += 1;
+            // processEntry->awakeThreadCount -= 1;
+            // kernelLock->Release();
 
             currentThread->Yield();
 
-            kernelLock->Acquire();
-            processEntry->sleepThreadCount -= 1;
-            processEntry->awakeThreadCount += 1;
-            kernelLock->Release();
+            // kernelLock->Acquire();
+            // processEntry->sleepThreadCount -= 1;
+            // processEntry->awakeThreadCount += 1;
+            // kernelLock->Release();
             break;
         case SC_Fork:
             kernelLock->Acquire();
@@ -575,14 +584,13 @@ void ExceptionHandler(ExceptionType which) {
             OpenFile *filePointer = fileSystem->Open(nameOfProcess);
 
             if (filePointer){ // check if pointer is not null
-              AddrSpace* as = new AddrSpace(nameOfProcess); // Create new addrespace for this executable file
+              AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
               delete [] nameOfProcess; //TODO: MOVE THIS DELETE AROUND< PLS
               Thread* newThread = new Thread("ExecThread");
               newThread->space = as; //Allocate the space created to this thread's space
-              processEntry = new ProcessEntry();
-              processEntry->space = as;
-              processEntry->spaceId = processCount;
-              processTable->processEntries[processCount] = processEntry;
+              processTable->processEntries[processCount] = new ProcessEntry();
+              processTable->processEntries[processCount]->space = as;
+              processTable->processEntries[processCount]->spaceId = processCount;
               processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id] = as->StackTopForMain;
               //cout << "Start stack location for Exec_thread: " << processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id]<< endl;
 
@@ -609,8 +617,10 @@ void ExceptionHandler(ExceptionType which) {
             } else if(!isLastProcessVar && isLastExecutingThreadVar) {
             //This is the last thread in a process, but not the last process, so we delete the entire addressspace
                   DEBUG('a', "Not last process and last thread, deleting process.\n");
+                  cout << "Not last process and last thread, deleting process.\n" ;
                   delete currentThread->space;
                   processTable->runningProcessCount -= 1;
+
                   kernelLock->Release();
                   currentThread->Finish();
 
