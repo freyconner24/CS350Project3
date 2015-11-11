@@ -31,11 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-<<<<<<< HEAD
-all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2 condServerInitTest condServer_t2 condServer_t1 condServer_t3 condServer_t4 condInit monInit monServer_t1 monServer_t2 monServer_t3 unitTestCond2 unitTestCond1 lock_t4 lock_t3 acquireTest signalTest
-=======
-all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults twoSorts forkTwoSorts forkTwoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2
->>>>>>> d88f63f88132037bdfebc50240a28ec643af7d9e
+all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2 condServerInitTest condServer_t2 condServer_t1 condServer_t3 condServer_t4 condInit monInit monServer_t1 monServer_t2 monServer_t3 unitTestCond2 unitTestCond1 lock_t4 lock_t3 acquireTest signalTest twoSorts forkTwoSorts forkTwoMatmults
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
