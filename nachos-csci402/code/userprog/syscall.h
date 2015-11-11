@@ -161,8 +161,8 @@ void Release(int lockNumber);
 void DestroyLock(int destroyValue);
 
 int CreateMonitor(char* name, int size, int appendNum);
-void GetMonitor(int monitorNumber);
-void SetMonitor(int monitorNumber);
+int GetMonitor(int monitorIndex, int arrayIndex);
+void SetMonitor(int monitorIndex, int arrayIndex, int value);
 void DestroyMonitor(int monitorNumber);
 
 int CreateCondition(char* name, int size, int appendNum);

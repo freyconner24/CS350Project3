@@ -1,15 +1,15 @@
 # NOTE: this is a GNU Makefile.  You must use "gmake" rather than "make".
 #
 # Makefile for the network assignment
-#    Defines set up assuming this assignment is done last 
-#    If not, use the "bare bones"  defines below. 
+#    Defines set up assuming this assignment is done last
+#    If not, use the "bare bones"  defines below.
 #
 # Copyright (c) 1992 The Regents of the University of California.
-# All rights reserved.  See copyright.h for copyright notice and limitation 
+# All rights reserved.  See copyright.h for copyright notice and limitation
 # of liability and disclaimer of warranty provisions.
 
 DEFINES = -DUSER_PROGRAM -DFILESYS_NEEDED -DFILESYS_STUB -DNETWORK
-INCPATH = -I../filesys -I../bin -I../userprog -I../threads -I../machine -I../network 
+INCPATH = -I../filesys -I../bin -I../userprog -I../threads -I../machine -I../network
 HFILES = $(THREAD_H) $(USERPROG_H) $(VM_H) $(NETWORK_H)
 CFILES = $(THREAD_C) $(USERPROG_C) $(VM_C) $(NETWORK_C)
 C_OFILES = $(THREAD_O) $(USERPROG_O) $(VM_O) $(NETWORK_O)
@@ -2448,7 +2448,10 @@ condition_syscalls.o: ../userprog/condition_syscalls.cc \
   ../machine/stats.h ../machine/timer.h ../userprog/syscall.h \
   ../filesys/filesys.h ../network/post.h ../threads/copyright.h \
   ../machine/network.h ../threads/synchlist.h ../userprog/syscall.h \
-  ../userprog/custom_syscalls.h ../userprog/addrspace.h
+  ../userprog/custom_syscalls.h ../threads/synchlist.h \
+  ../userprog/addrspace.h ../machine/network.h ../network/post.h \
+  /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/../../../../include/c++/3.4.3/sstream \
+  /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/../../../../include/c++/3.4.3/bits/sstream.tcc
 lock_syscalls.o: ../userprog/lock_syscalls.cc ../threads/copyright.h \
   ../threads/system.h ../threads/copyright.h ../threads/utility.h \
   ../threads/bool.h ../machine/sysdep.h ../threads/copyright.h \

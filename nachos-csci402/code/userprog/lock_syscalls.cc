@@ -15,7 +15,7 @@
 
 // +++++++++++++++++++++++++ UTILITY +++++++++++++++++++++++++
 // generic function that allows us to send any message to the server
-void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, char name[], int entityIndex1, int entityIndex2) {
+void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, char name[], int entityIndex1, int entityIndex2, int entityIndex3) {
     mailHdr.to = 0;
     mailHdr.from = 0;
     pktHdr.to = 0;
@@ -23,10 +23,13 @@ void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, c
     stringstream ss;
 	ss << serverCode;
 
-	if(serverCode[2] == 'C') { // it is a Create and needs a name
+  if (serverCode[0] == 'M' && serverCode[2] == 'C'){ // it is a Monitor Create and needs a name and size
+    ss << name << ' ' << entityIndex1;
+  }
+	else if(serverCode[2] == 'C') { // it is a Create and needs a name
 		ss << name;
 	} else {
-		ss << entityIndex1 << ' ' << entityIndex2;
+		ss << entityIndex1 << ' ' << entityIndex2 << ' ' << entityIndex3;
 	}
 
 	string str = ss.str();
@@ -38,7 +41,7 @@ void sendToServer(PacketHeader &pktHdr, MailHeader &mailHdr, char* serverCode, c
 	sendBuffer[str.size()] = '\0';
 	mailHdr.length = str.size() + 1;
 
-	cout << "Client::sendBuffer: " << sendBuffer << endl;
+	// cout << "Client::sendBuffer: " << sendBuffer << endl;
     bool success = postOffice->Send(pktHdr, mailHdr, sendBuffer);
 
     if ( !success ) {
@@ -61,11 +64,11 @@ string getFromServer(PacketHeader &pktHdr, MailHeader &mailHdr) {
 // this function takes the syscallCode, name of entity to be created, and the entity indexes
 // if it is not create, pass name as ""
 // if entity indexe(s) are needed, pass -1
-string sendAndRecieveMessage(char* sysCode, char* name, int entityIndex1, int entityIndex2) {
+string sendAndRecieveMessage(char* sysCode, char* name, int entityIndex1, int entityIndex2, int entityIndex3) {
 	PacketHeader pktHdr;
 	MailHeader mailHdr;
 
-	sendToServer(pktHdr, mailHdr, sysCode, name, entityIndex1, entityIndex2);
+	sendToServer(pktHdr, mailHdr, sysCode, name, entityIndex1, entityIndex2, entityIndex3);
 
 	return getFromServer(pktHdr, mailHdr);
 }
@@ -82,7 +85,7 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
 		return -1;
 	}; //copy contents of the virtual addr (ReadRegister(4)) to the name
 
-    string receivedString = sendAndRecieveMessage("L C ", name, -1, -1);
+    string receivedString = sendAndRecieveMessage("L C ", name, -1, -1, -1);
     stringstream ss;
     ss << receivedString;
 
@@ -93,33 +96,33 @@ int CreateLock_sys(int vaddr, int size, int appendNum) {
         cout << "Client::currentLockIndex == -1" << endl;
         interrupt->Halt();
     }
+    cout << "Client::CreateLock:: " <<currentLockIndex<< endl;
 
 	currentThread->space->lockCount += 1;
-    cout << "currentLockIndex: " << currentLockIndex << endl;
 	return currentLockIndex;
 }
 
 // acquire lock syscall
 void Acquire_sys(int lockIndex) {
-	string receivedString = sendAndRecieveMessage("L A ", "", lockIndex, -1);
+	string receivedString = sendAndRecieveMessage("L A ", "", lockIndex, -1, -1);
     cout << "Acquire::receivedString: " << receivedString << endl;
 }
 
 // release lock syscall
 void Release_sys(int lockIndex) {
-	string receivedString = sendAndRecieveMessage("L R ", "", lockIndex, -1);
+	string receivedString = sendAndRecieveMessage("L R ", "", lockIndex, -1, -1);
     cout << "Release::receivedString: " << receivedString << endl;
 }
 
 void DestroyLock_sys(int lockIndex) {
-	string receivedString = sendAndRecieveMessage("L D ", "", lockIndex, -1);
+	string receivedString = sendAndRecieveMessage("L D ", "", lockIndex, -1, -1);
     cout << "DestroyLock::receivedString: " << receivedString << endl;
 }
 
 // ++++++++++++++++++++ MONITORS ++++++++++++++++++++++++
 
 // create monitor syscall
-int CreateMonitor_sys(int vaddr, int size, int appendNum) {
+int CreateMonitor_sys(int vaddr, int size, int arraySize) {
 	char* name = new char[size + 1]; //allocate new char array
 	name[size] = '\0'; //end the char array with a null character
 
@@ -130,37 +133,41 @@ int CreateMonitor_sys(int vaddr, int size, int appendNum) {
 		return -1;
 	}; //copy contents of the virtual addr (ReadRegister(4)) to the name
 
-    string receivedString = sendAndRecieveMessage("M C ", name, -1, -1);
+    string receivedString = sendAndRecieveMessage("M C ", name, arraySize, -1, -1);
     stringstream ss;
     ss << receivedString;
 
-    int currentLockIndex = -1;
-    ss >> currentLockIndex;
-
-    if(currentLockIndex == -1) {
-        cout << "Client::currentLockIndex == -1" << endl;
+    int currentMonIndex = -1;
+    ss >> currentMonIndex;
+    if(currentMonIndex == -1) {
+         cout << "Client::currentMonIndex == -1" << endl;
         interrupt->Halt();
     }
 
-	currentThread->space->lockCount += 1;
-    cout << "currentLockIndex: " << currentLockIndex << endl;
-	return currentLockIndex;
+	//currentThread->space->lockCount += 1;
+	return currentMonIndex;
 }
 
 // get monitor syscall
-void GetMonitor_sys(int monitorIndex) {
-	string receivedString = sendAndRecieveMessage("M G ", "", monitorIndex, -1);
-    cout << "Client::GetMonitor::receivedString: " << receivedString << endl;
+int GetMonitor_sys(int monitorIndex, int arrayIndex) {
+	string receivedString = sendAndRecieveMessage("M G ", "", monitorIndex, arrayIndex, -1);
+    cout << "Client::GetMonitor::receivedString: " << receivedString <<  ' ' << monitorIndex << ' ' << arrayIndex << endl;
+    int value;
+    stringstream ss;
+    ss << receivedString;
+    ss >> value;
+    // cout << "Got Monitor value: " << value << endl;
+    return value;
 }
 
 // set monitor syscall
-void SetMonitor_sys(int monitorIndex) {
-	string receivedString = sendAndRecieveMessage("M S ", "", monitorIndex, -1);
-    cout << "Client::SetMonitor::receivedString: " << receivedString << endl;
+void SetMonitor_sys(int monitorIndex, int arrayIndex, int value) {
+	string receivedString = sendAndRecieveMessage("M S ", "", monitorIndex, arrayIndex, value);
+  cout << "Client::SetMonitor::receivedString: " << receivedString <<  ' ' << monitorIndex << ' ' << arrayIndex << ' '<< value << endl;
 }
 
 // destroy monitor syscall
 void DestroyMonitor_sys(int monitorIndex) {
-	string receivedString = sendAndRecieveMessage("M D ", "", monitorIndex, -1);
-    cout << "Client::DestroyMonitor::receivedString: " << receivedString << endl;
+	string receivedString = sendAndRecieveMessage("M D ", "", monitorIndex, -1, -1);
+     cout << "Client::DestroyMonitor::receivedString: " << receivedString << endl;
 }

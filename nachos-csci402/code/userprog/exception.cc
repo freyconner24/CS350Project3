@@ -514,11 +514,14 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_GetMonitor:
             DEBUG('a', "GetMonitor syscall.\n");
-            GetMonitor_sys(machine->ReadRegister(4));
+            rv = GetMonitor_sys(machine->ReadRegister(4),
+                          machine->ReadRegister(5));
             break;
         case SC_SetMonitor:
             DEBUG('a', "SetMonitor syscall.\n");
-            SetMonitor_sys(machine->ReadRegister(4));
+            SetMonitor_sys(machine->ReadRegister(4),
+                            machine->ReadRegister(5),
+                            machine->ReadRegister(6));
             break;
         case SC_DestroyMonitor:
             DEBUG('a', "DestroyMonitor syscall.\n");

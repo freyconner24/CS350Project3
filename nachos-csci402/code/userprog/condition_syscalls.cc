@@ -25,7 +25,7 @@ int CreateCondition_sys(int vaddr, int size, int appendNum) {
 		return -1;
 	}
 
-    string receivedString = sendAndRecieveMessage("C C ", name, -1, -1);
+    string receivedString = sendAndRecieveMessage("C C ", name, -1, -1, -1);
     stringstream ss;
     ss << receivedString;
 
@@ -37,8 +37,7 @@ int CreateCondition_sys(int vaddr, int size, int appendNum) {
         interrupt->Halt();
     }
 
-	currentThread->space->lockCount += 1;
-    cout << "currentCondIndex: " << currentCondIndex << endl;
+	currentThread->space->condCount += 1;
 
     cout << "Client::CreateCondition::receivedString: " << receivedString << endl;
 	return currentCondIndex;
@@ -46,25 +45,25 @@ int CreateCondition_sys(int vaddr, int size, int appendNum) {
 
 // condition wait syscall
 void Wait_sys(int lockIndex, int conditionIndex) {
-	string receivedString = sendAndRecieveMessage("C W ", "", lockIndex, conditionIndex);
+	string receivedString = sendAndRecieveMessage("C W ", "", lockIndex, conditionIndex, -1);
     cout << "Client::Wait::receivedString: " << receivedString << endl;
 }
 
 // condition signal syscall
 void Signal_sys(int lockIndex, int conditionIndex) {
-	string receivedString = sendAndRecieveMessage("C S ", "", lockIndex, conditionIndex);
+	string receivedString = sendAndRecieveMessage("C S ", "", lockIndex, conditionIndex, -1);
     cout << "Client::Signal::receivedString: " << receivedString << endl;
 }
 
 // condition broadcast syscall
 void Broadcast_sys(int lockIndex, int conditionIndex) {
-	string receivedString = sendAndRecieveMessage("C B ", "", lockIndex, conditionIndex);
+	string receivedString = sendAndRecieveMessage("C B ", "", lockIndex, conditionIndex, -1);
     cout << "Client::Broadcast::receivedString: " << receivedString << endl;
 }
 
 // condition destroy syscall
 void DestroyCondition_sys(int conditionIndex) {
-	string receivedString = sendAndRecieveMessage("C D ", "", conditionIndex, -1);
+	string receivedString = sendAndRecieveMessage("C D ", "", conditionIndex, -1, -1);
     cout << "DestroyLock::receivedString: " << receivedString << endl;
 
 }

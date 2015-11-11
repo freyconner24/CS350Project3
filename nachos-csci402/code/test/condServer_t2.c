@@ -24,6 +24,9 @@ int main() {
   Write("Signaling with lock1, should be successful\n", 43, ConsoleOutput);
   Acquire(lock1);
   Signal(lock1, cond1);
+  Write("Signaling with lock1, should be successful\n", 43, ConsoleOutput);
+  Acquire(lock1);
+  Signal(lock1, cond1);
 
 	Write("Finshing condServer_t2\n", 23, ConsoleOutput);
 	Exit(0);

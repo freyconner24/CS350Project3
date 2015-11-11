@@ -16,7 +16,8 @@ int condToBeDestroyed = 2;
 int main() {
   Write("Waiting cond1 with lock1 again, should be successful\n", 53, ConsoleOutput);
   Acquire(lock1);
-  Wait(lock1, cond1);
+  Broadcast(lock1,cond1);
+  /*Wait(lock1, cond1);*/
 
   Write("Finshing condServer_t3\n", 23, ConsoleOutput);
   Exit(0);

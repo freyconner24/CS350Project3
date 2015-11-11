@@ -13,27 +13,27 @@ int cond3 = 2;
 int cond4 = 3;
 
 int main() {
-  Write("Acquire and Signal 3, no permission\n", 36, ConsoleOutput);
+  Write("Acquire and Signal 3\n", 21, ConsoleOutput);
   Acquire(lock3);
-  Signal(lock3, cond3);
-
+  Signal(lock3, cond3) ;
+  Release(lock3);
   Write("Acquire and Wait 3, should be successful\n", 41, ConsoleOutput);
   Acquire(lock3);
   Wait(lock3, cond3);
-
-  Write("Acquire and Broadcast 4, should be successful\n", 46, ConsoleOutput);
+  Release(lock3);
+  /*Write("Acquire and Broadcast 4, should be successful\n", 46, ConsoleOutput);
   Acquire(lock4);
-  Broadcast(lock4, cond4);
+  Signal(lock4, cond4);*/
 
   Write("Acquire and Broadcast 3, should be successful\n", 46, ConsoleOutput);
 
   Acquire(lock3);
-  Broadcast(lock3, cond3);
-
+  Signal(lock3, cond3);
+  Release(lock3);
   Write("Destroy cond3 cond4, should be successful\n", 42, ConsoleOutput);
 
-  DestroyCondition(cond3);
-  DestroyCondition(cond4);
+  /*DestroyCondition(cond3);
+  DestroyCondition(cond4);*/
 
   Write("Finshing condServer_t4\n", 23, ConsoleOutput);
   Exit(0);
