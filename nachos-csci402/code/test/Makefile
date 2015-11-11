@@ -31,7 +31,11 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
+<<<<<<< HEAD
 all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2 condServerInitTest condServer_t2 condServer_t1 condServer_t3 condServer_t4 condInit monInit monServer_t1 monServer_t2 monServer_t3 unitTestCond2 unitTestCond1 lock_t4 lock_t3 acquireTest signalTest
+=======
+all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults twoSorts forkTwoSorts forkTwoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2
+>>>>>>> d88f63f88132037bdfebc50240a28ec643af7d9e
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -50,6 +54,18 @@ sort: sort.o start.o
 	$(LD) $(LDFLAGS) start.o sort.o -o sort.coff
 	../bin/coff2noff sort.coff sort
 
+twoSorts.o: twoSorts.c
+	$(CC) $(CFLAGS) -c twoSorts.c
+twoSorts: twoSorts.o start.o
+	$(LD) $(LDFLAGS) start.o twoSorts.o -o twoSorts.coff
+	../bin/coff2noff twoSorts.coff twoSorts
+
+forkTwoSorts.o: forkTwoSorts.c
+	$(CC) $(CFLAGS) -c forkTwoSorts.c
+forkTwoSorts: forkTwoSorts.o start.o
+	$(LD) $(LDFLAGS) start.o forkTwoSorts.o -o forkTwoSorts.coff
+	../bin/coff2noff forkTwoSorts.coff forkTwoSorts
+
 matmult.o: matmult.c
 	$(CC) $(CFLAGS) -c matmult.c
 matmult: matmult.o start.o
@@ -62,6 +78,12 @@ twoMatmults.o: twoMatmults.c
 twoMatmults: twoMatmults.o start.o
 	$(LD) $(LDFLAGS) start.o twoMatmults.o -o twoMatmults.coff
 	../bin/coff2noff twoMatmults.coff twoMatmults
+
+forkTwoMatmults.o: forkTwoMatmults.c
+	$(CC) $(CFLAGS) -c forkTwoMatmults.c
+forkTwoMatmults: forkTwoMatmults.o start.o
+	$(LD) $(LDFLAGS) start.o forkTwoMatmults.o -o forkTwoMatmults.coff
+	../bin/coff2noff forkTwoMatmults.coff forkTwoMatmults
 
 testfiles.o: testfiles.c
 	$(CC) $(CFLAGS) -c testfiles.c

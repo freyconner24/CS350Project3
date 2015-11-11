@@ -30,6 +30,7 @@
 #include "system.h"
 #include "syscall.h"
 #include "custom_syscalls.h"
+#include "list.h"
 #include <stdio.h>
 #include <iostream>
 #include <string>
@@ -354,6 +355,105 @@ bool isLastProcess() {
         return false;
     }
 }
+//Handler for a full memory, evicts a page according to a chosen policy, an updates the pagetable properly
+int handleMemoryFull(){
+    int pageToBoot;
+    //Selects a page to evict, according to the selected policy; FIFO or randomly
+    if(runWithFIFO){
+        pageToBoot = (int)swapQueue->Remove();
+    }else{
+        pageToBoot = rand () % NumPhysPages;
+    }
+    //Selects the proper pagetable to update, accordin to the owner of the to-be-evicted page
+    ExtendedTranslationEntry* pageTable = processTable->processEntries[ipt[pageToBoot].spaceOwner]->space->pageTable;
+    //Checking the presence of evicted page in the TLB and propagating the dirty bit
+    for (int i = 0; i < TLBSize; i++){
+        if(machine->tlb[i].virtualPage == ipt[pageToBoot].virtualPage && 
+            ipt[pageToBoot].spaceOwner == processTable->processEntries[ipt[pageToBoot].spaceOwner]->spaceId && 
+            machine->tlb[i].valid){
+            machine->tlb[i].valid = FALSE;
+            if(machine->tlb[i].dirty){
+                ipt[pageToBoot].dirty = TRUE;
+            }
+        }
+    }
+    //Storing the to-be-evicted page into the swapfile, if the dirty bit is set, and updating the connected pagetable
+    if(ipt[pageToBoot].dirty){ 
+        int swapLocationPPN = swapfileBitmap->Find();
+        swapfile->WriteAt(&(machine->mainMemory[pageToBoot * PageSize]), PageSize, PageSize * swapLocationPPN);
+        pageTable[ipt[pageToBoot].virtualPage].diskLocation = SWAP;
+        pageTable[ipt[pageToBoot].virtualPage].byteOffset = PageSize * swapLocationPPN;
+    }
+    pageTable[ipt[pageToBoot].virtualPage].physicalPage = -1;
+    return pageToBoot;
+}
+
+//Second step in MMU, allocating a physical memory page
+int handleIPTMiss(int virtualPage){
+    int ppn = bitmap->Find();  //Find an available physical page of memory
+    ExtendedTranslationEntry* pageTable = currentThread->space->pageTable;
+    //Handler when memory is full to evict a page from memory
+    if ( ppn == -1 ) {
+        ppn = handleMemoryFull();
+    }
+    //Loads the needed page from the respective disk location, or not at all
+    if(pageTable[virtualPage].diskLocation == EXECUTABLE){
+        currentThread->space->executable->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
+    }else if(pageTable[virtualPage].diskLocation == SWAP){
+        swapfile->ReadAt(&(machine->mainMemory[ppn * PageSize]), PageSize, pageTable[virtualPage].byteOffset);
+        //NOTE: could add Clear from swapfile, cause now the page is in main memory
+    }
+    //If FIFO replacement policy was chosen, this will append the newly freed up page to the FIFO queue
+    if(runWithFIFO){
+        swapQueue->Append((void*)ppn);
+    }
+    
+    //Updating the pagetable and IPT
+    ipt[ppn].virtualPage = virtualPage;
+    ipt[ppn].physicalPage = ppn;
+    ipt[ppn].valid = TRUE;
+    ipt[ppn].spaceOwner = currentThread->space->processId;
+    pageTable[virtualPage].physicalPage = ppn;
+    pageTable[virtualPage].virtualPage = virtualPage;
+    pageTable[virtualPage].valid = TRUE;
+    return ppn;
+}
+
+//First step in MMU, looking through the IPT and looking for needed virtual address
+void HandlePageFault(int virtualAddress) {
+    int virtualPage = virtualAddress / PageSize; //Translates virtual address to the corresponding virtual page
+    ++tlbCounter;
+    TranslationEntry* tlb = machine->tlb;
+    int ppn = -1;
+    IntStatus oldLevel = interrupt->SetLevel(IntOff); //disable interrupts
+    //Search through the IPT, returns the physical page number if virtual page loaded into memory
+    for(int i = 0; i < NumPhysPages; ++i) {
+        if(ipt[i].virtualPage == virtualPage &&
+            ipt[i].spaceOwner == currentThread->space->processId &&
+            ipt[i].valid){
+            ppn = i;
+            break;
+        }
+    }
+    //Handler if the needed virtual page is not in memory/IPT 
+    if (ppn == -1) {
+        ppn = handleIPTMiss( virtualPage );
+    }
+
+    //Propagates the dirty bit before the TLB is modified
+    if(tlb[tlbCounter % 4].valid) {
+        ipt[tlb[tlbCounter % 4].physicalPage].dirty = tlb[tlbCounter % 4].dirty;
+    }
+    //Loads the required virtual page into the TLB
+    tlb[tlbCounter % 4].virtualPage   = ipt[ppn].virtualPage;
+    tlb[tlbCounter % 4].physicalPage  = ipt[ppn].physicalPage;
+    tlb[tlbCounter % 4].valid         = ipt[ppn].valid;
+    tlb[tlbCounter % 4].use           = ipt[ppn].use;
+    tlb[tlbCounter % 4].dirty         = ipt[ppn].dirty;
+    tlb[tlbCounter % 4].readOnly      = ipt[ppn].readOnly;
+
+    (void) interrupt->SetLevel(oldLevel); //restore interrupts
+}
 
 void ExceptionHandler(ExceptionType which) {
     int type = machine->ReadRegister(2); // Which syscall?
@@ -398,20 +498,10 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Yield:
             DEBUG('a', "Yield syscall.\n");
-            kernelLock->Acquire();
-            ProcessEntry* processEntry = processTable->processEntries[currentThread->space->processId];
-            processEntry->sleepThreadCount += 1;
-            processEntry->awakeThreadCount -= 1;
-            kernelLock->Release();
-
             currentThread->Yield();
-
-            kernelLock->Acquire();
-            processEntry->sleepThreadCount -= 1;
-            processEntry->awakeThreadCount += 1;
-            kernelLock->Release();
             break;
         case SC_Fork:
+            //Fork creates a new thread in the same address space
             kernelLock->Acquire();
             DEBUG('a', "Fork syscall.\n");
             virtualAddress = machine->ReadRegister(4);
@@ -441,18 +531,16 @@ void ExceptionHandler(ExceptionType which) {
             }
             nameOfProcess[32] = '\0';
             OpenFile *filePointer = fileSystem->Open(nameOfProcess);
-            delete [] nameOfProcess;
+
             if (filePointer){ // check if pointer is not null
               AddrSpace* as = new AddrSpace(filePointer); // Create new addrespace for this executable file
+              delete [] nameOfProcess; //TODO: MOVE THIS DELETE AROUND< PLS
               Thread* newThread = new Thread("ExecThread");
               newThread->space = as; //Allocate the space created to this thread's space
-              processEntry = new ProcessEntry();
-              processEntry->space = as;
-              processEntry->spaceId = processCount;
-              processTable->processEntries[processCount] = processEntry;
+              processTable->processEntries[processCount] = new ProcessEntry();
+              processTable->processEntries[processCount]->space = as;
+              processTable->processEntries[processCount]->spaceId = processCount;
               processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id] = as->StackTopForMain;
-              //cout << "Start stack location for Exec_thread: " << processTable->processEntries[newThread->space->processId]->stackLocations[newThread->id]<< endl;
-
               rv = newThread->space->spaceId;
               newThread->Fork((VoidFunctionPtr)exec_thread, 0);
               kernelLock->Release();
@@ -465,6 +553,8 @@ void ExceptionHandler(ExceptionType which) {
             break;
         case SC_Exit:
             kernelLock->Acquire();
+            //Prints the result of the exit to the user program
+            printf("-----------Exit Output: %d\n", machine->ReadRegister(4));
             //Checks for last process and last thread
             bool isLastProcessVar = isLastProcess();
             bool isLastExecutingThreadVar = isLastExecutingThread(currentThread);
@@ -475,8 +565,10 @@ void ExceptionHandler(ExceptionType which) {
             } else if(!isLastProcessVar && isLastExecutingThreadVar) {
             //This is the last thread in a process, but not the last process, so we delete the entire addressspace
                   DEBUG('a', "Not last process and last thread, deleting process.\n");
+                  cout << "Not last process and last thread, deleting process.\n" ;
                   delete currentThread->space;
                   processTable->runningProcessCount -= 1;
+
                   kernelLock->Release();
                   currentThread->Finish();
 
@@ -576,6 +668,8 @@ void ExceptionHandler(ExceptionType which) {
 	machine->WriteRegister(PCReg,machine->ReadRegister(NextPCReg));
 	machine->WriteRegister(NextPCReg,machine->ReadRegister(PCReg)+4);
 	return;
+    } else if(which == PageFaultException) { //Catches the PageFaultException if exceptions are raised
+        HandlePageFault(machine->ReadRegister(BadVAddrReg));
     } else {
 cout<<"Unexpected user mode exception - which:"<<which<<"  type:"<< type<< " in " << currentThread->getName() << endl;
       interrupt->Halt();

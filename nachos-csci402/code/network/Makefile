@@ -8,8 +8,13 @@
 # All rights reserved.  See copyright.h for copyright notice and limitation
 # of liability and disclaimer of warranty provisions.
 
+<<<<<<< HEAD
 DEFINES = -DUSER_PROGRAM -DFILESYS_NEEDED -DFILESYS_STUB -DNETWORK
 INCPATH = -I../filesys -I../bin -I../userprog -I../threads -I../machine -I../network
+=======
+DEFINES = -DUSER_PROGRAM -DFILESYS_NEEDED -DFILESYS_STUB -DNETWORK -DVM -DUSE_TLB
+INCPATH = -I../filesys -I../bin -I../userprog -I../threads -I../machine -I../network 
+>>>>>>> d88f63f88132037bdfebc50240a28ec643af7d9e
 HFILES = $(THREAD_H) $(USERPROG_H) $(VM_H) $(NETWORK_H)
 CFILES = $(THREAD_C) $(USERPROG_C) $(VM_C) $(NETWORK_C)
 C_OFILES = $(THREAD_O) $(USERPROG_O) $(VM_O) $(NETWORK_O)
@@ -1699,7 +1704,7 @@ exception.o: ../userprog/exception.cc ../threads/copyright.h \
   ../machine/stats.h ../machine/timer.h ../userprog/syscall.h \
   ../filesys/filesys.h ../network/post.h ../threads/copyright.h \
   ../machine/network.h ../threads/synchlist.h ../userprog/syscall.h \
-  ../userprog/custom_syscalls.h \
+  ../userprog/custom_syscalls.h ../threads/list.h \
   /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/../../../../include/c++/3.4.3/sstream \
   /usr/sfw/lib/gcc/sparc-sun-solaris2.10/3.4.3/../../../../include/c++/3.4.3/bits/sstream.tcc
 progtest.o: ../userprog/progtest.cc ../threads/copyright.h \
