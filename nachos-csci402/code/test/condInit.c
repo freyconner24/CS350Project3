@@ -31,6 +31,20 @@ int main() {
 
   theLockThatDoesntExist = lock1+10;
   theCondThatDoesntExist = cond1+10;
+  Write("Destroying CV, should see both successful and unsuccesful attempts.\n", 68, ConsoleOutput);
+  Write("Destroying condToBeDestroyed\n", 29, ConsoleOutput);
+  DestroyCondition(condToBeDestroyed);
+  Write("Destroying theCondThatDoesntExist\n", 34, ConsoleOutput);
+  DestroyCondition(theCondThatDoesntExist);
+  Write("Waiting theCondThatDoesntExist\n", 32, ConsoleOutput);
+  Acquire(lock1);
+  Wait(lock1, theCondThatDoesntExist);
+  Write("Signaling theCondThatDoesntExist\n", 34, ConsoleOutput);
+  Acquire(lock1);
+  Signal(lock1, theCondThatDoesntExist);
+  Release(lock1);
+  Write("Broadcasting theCondThatDoesntExist\n", 36, ConsoleOutput);
+  Broadcast(lock1,theCondThatDoesntExist);
 	Write("Finshing condInit\n", 18, ConsoleOutput);
 	Exit(0);
 }

@@ -19,20 +19,14 @@ int main(){
 		Yield();
 	}
 	Release(lock1);
-	PrintString("Waiting on lock1\n", 17);
-	Acquire(lock2);
-  Wait(lock2, cond2);
-
-  PrintString("Acquiring and printing monitor value. Should have 9.\n", 54);
-  Acquire(lock1);
-  value1 = GetMonitor(mon1, 0);
-  PrintNum(value1);PrintNl();
-  Release(lock1);
+	PrintString("Waiting on lock2\n", 17);
+	Acquire(lock1);
+  Wait(lock1, cond1);
+	Release(lock1);
 
 	PrintString("Destroying Monitors 1 and 2\n", 28);
 	DestroyMonitor(mon1);
 	DestroyMonitor(mon2);
-	Release(lock2);
 
 	Exit(1);
 }

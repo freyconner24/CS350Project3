@@ -19,18 +19,20 @@ int main() {
   Write("Waiting cond1 with lock1, should be successful\n", 47, ConsoleOutput);
   Acquire(lock1);
   Wait(lock1, cond1);
-
+  Acquire(lock1);
+  Wait(lock1, cond1);
   PrintNl();
   Write("A working set of operations, should be successful\n", 50, ConsoleOutput);
   PrintNl();
   Write("Broadcasting with lock1, should be successful\n", 47, ConsoleOutput);
   Acquire(lock1);
   Broadcast(lock1, cond1);
+  Release(lock1);
   Write("Destroying cond1, should be successful\n", 39, ConsoleOutput);
-  DestroyCondition(cond1);
+  /*DestroyCondition(cond1);
 
   Write("Destroying cond2, should be successful\n", 39, ConsoleOutput);
-  DestroyCondition(cond2);
+  DestroyCondition(cond2);*/
 
   Write("Finshing condServer_t1\n", 23, ConsoleOutput);
   Exit(0);

@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2 condServerInitTest condServer_t2 condServer_t1 condServer_t3 condServer_t4 condInit monInit monServer_t1 monServer_t2 monServer_t3 unitTestCond2 unitTestCond1 lock_t4 lock_t3 acquireTest signalTest twoSorts forkTwoSorts forkTwoMatmults
+all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2 condServerInitTest condServer_t2 condServer_t1 condServer_t3 condServer_t4 condInit monInit monServer_t1 monServer_t2 monServer_t3 unitTestCond2 unitTestCond1 lock_t4 lock_t3 acquireTest signalTest twoSorts forkTwoSorts forkTwoMatmults signalTestEnd
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -237,11 +237,19 @@ acquireTest: acquireTest.o start.o
 				$(LD) $(LDFLAGS) start.o acquireTest.o -o acquireTest.coff
 				../bin/coff2noff acquireTest.coff acquireTest
 
+signalTestEnd.o: signalTestEnd.c
+				$(CC) $(CFLAGS) -c signalTestEnd.c
+signalTestEnd: signalTestEnd.o start.o
+				$(LD) $(LDFLAGS) start.o signalTestEnd.o -o signalTestEnd.coff
+				../bin/coff2noff signalTestEnd.coff signalTestEnd
+
 signalTest.o: signalTest.c
 				$(CC) $(CFLAGS) -c signalTest.c
 signalTest: signalTest.o start.o
 				$(LD) $(LDFLAGS) start.o signalTest.o -o signalTest.coff
 				../bin/coff2noff signalTest.coff signalTest
+
+
 
 clean:
 	rm -f *.o *.coff

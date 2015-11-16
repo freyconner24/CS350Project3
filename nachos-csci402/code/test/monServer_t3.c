@@ -11,9 +11,9 @@ int cond2 = 1;
 
 int main(){
 	PrintString("Acquiring and Signaling.\n", 25);
-
-	Acquire(lock2);
-  Signal(lock2, cond2);
+	Acquire(lock1);
+  Signal(lock1, cond1);
+	Release(lock1);
 
 	Exit(1);
 }
