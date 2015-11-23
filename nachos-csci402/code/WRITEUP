@@ -1,381 +1,387 @@
-Template for CSCI402 Project Writeup
-
-This document is intended to act as a template for students to assist them in finishing the project writeup. A well-written writeup is helpful for students to summarize their achievements and for graders to evaluate the student's efforts.
-
-As far as the length of the writeup, you need to explain your code in the writeup.  Just using a few words isn't going to get it done.  In addition, remember that this is an advanced class, so you don't need to describe every line of code that you write.  We are interested in what you understand about the theory behind the code you're writing and your level of understanding for the practical problems we assign to use the code you wrote to implement the theory.  So don't be too brief and don't go overboard on what you describe.
-
-Some Basic Writeup Rules
-1. The writeup must be a plain text file and submitted with your source code together.  No MS word documents.
-
-2. If you fail to finish the development of your code describe what you've got for each part of the project.  You should at least be able to describe your design.
-
-3. Usually there are a number of parts for each assignment, the development of one part may be related to another. You have the freedom to talk about each part separately or together under one section of your writeup.  Whichever way you decide, be sure that you make it clear how you are describing each part.
-
-4. The lines starting with an index number, such as I, II, III, etc., and starting with '+' are section and subsection headings. You must retain these headings in your WRITEUP file, placing your specific writeup description within the headings.
-
-5. The words starting with '-' are instructions about what to put in those section/subsection headings.  Do no include them in the writeup file you submit.
-
 WRITEUP Template
-Title:  Writeup for Project 2, Fall 2015
-Date:  10/20/2015
-Group:	Name	Email
-  Conner Frey connerfr@usc.edu
-Calvin Leung yuikwanl@usc.edu
-Hung Vu Viet vuviet@usc.edu
+ Title:  Writeup for Project 3, Fall 2015
+ Date:  11/8/15
+ Group: 26	Name	Email
+		Conner Frey connerfr@usc.edu
+		Hung Vu Viet vuviet@usc.edu
+Yui Kwan Calvin Leung yuikwanl@usc.edu
 
 I. Requirements:
-- For Project 2, we will be supporting multiprogramming.  We will be working off of our Project 1 code as well as code given to us in order to complete the assignment.  Currently Nachos only runs a single user program, we basically need to make it able to support 2 user programs.  First we will start off by creating our own syscalls.  Most notably, the syscalls we will be writing is Fork, Exec, and Exit.  In addition to these three syscalls, we will also be implementing CreateLock, Acquire, Release, DestroyLock, CreateCondition, Signal, Wait, Broadcast, and DestroyCondition.  In order to add a Syscall we must do a few things.  First, we must add the syscall code inside syscall.h.  Second, we must add the User Syscalls inside syscall.h.  After we do this, we need to go into start.s and add the MIPS code to create the link between the Kernel syscall and the user syscall.  Once the links have been made inside start.s, we need to add the kernel syscall inside Exception.cc.  Also inside Exception.cc, we need to add the Syscall code from syscall.h to the big switch statement so that we can catch the syscall.  Then we need to write unit tests for the syscall in order to make sure that it is working.  Now the user can use Syscall.
+- We will be investigating the use of caching by utilizing the TLB cache that is built into nachos.  Essentially, in project 2 we had a linear pageTable which allowed us to search for physical pages indexed by virtual addresses to figure out which pages in physical memory were being used.  This pageTable was unlimited and it could potentially map to all of the physical pages in main memory (RAM).  Unfortunately, this is really slow, because if we are looking for a physical page, all we have is the virtual page.  Thus we have to iterate through the entire page table just to find that out virtual page is not there, then we have to go onto the main memory or disk to access the physical page, which is really slow.  In project 3, we will be remedying these slow lookup steps through the IPT and the TLB.  In project 3 we must first write another case in exceptoin.cc to catch HandlePageFaultException.  The TLB is really fast––it’s a cache of size 4 which allows us to store recent translation entries into it.  When it fills up, we just overwrite the first entry.  If our desired virtual address is not in the TLB, we have to go to the next slowest data structure (but still faster than the page table or DISK), the IPT (inverted page table).  This data structure maps physical pages to virt pages while the page table maps virt pages to phys pages.  The IPT is the same size as main memory, but allows us to look for the physical page directly by checking for the virt page.  If the IPT is full, we need to evict a page from the IPT using either a random page eviction implementation or a queue eviction implementation.  If we evict something, we must check if that page is dirty.  If it is, we must write it to swap.  Otherwise, if the virt page is not in the IPT, we must look in the page table.  We must check if the phys page is in the swap file  or the executable file or neither, then we can read the page, and finally return it back to the IPT, update the IPT, and finally update the TLB.  This will allow use to have a fixed size of memory and imitate actual caching and memory management vs being allowed to have the program function with infinite memory.
 
-Another thing that we needed to do for this project is modify the pagetable and AddrSpace.cc to support concurrency inside a process.  We followed the implementation of the pagetable as described in the student documentation. We first instantiate a page table with the executable; the initial data, uninitialized data and the code, then assign 8 pages to the stack for the very first thread - the main - that the first process calls. After that, whenever a new thread is forked, a new page table is instantiated, of the same size as the old page table + 8 new pages, for the new thread’s stack. The pagetable is alive for the entire duration of the process, and is deleted when the process is deleted in exit.
+The second part of the project is to implement Networking.  We must create server calls, a giant switch case, and a send and receive message handler in order to hook up clients to the server.  We must modify the current syscalls to send and receive encoded messages to implement synchronization code rather than using the locks and CVs already implemented in synch.h/.cc.  We will create protocols in order to abstractly send and handle message encoding both to and from the server.  We will create similar protocols on the Server in order to send and receive messages.  We will be supporting up to 5 clients with one server.  We implemented a giant server while loop in nettest.cc, and instantiated the packet header, mail header and buffer char.  We then start to receive messages from the post office, generated by client side applications.  The messages contain instructions such as “L C lock1”, which means Lock Create lock1 (name).  Then we compare the string to characters in the switch case which directly leads to the respective functions such as CreateLock, SetMonitor etc.  The server will be running forever and waiting to receive messages.  The to and from of packet headers and mail headers will be saved and populated to the correct recipient when stored in a waitqueue, so that when we remove from the queue, we send it to the correct client.  All these remote procedure calls enable us to create, destroy, get, set data, and do multi threading with locks, conditions and monitors.
 
-We also needed to create a ProcessTable inside AddrSpace.cc/.h in order to support multiple processes.  The ProcessTable struct contains a list of Process structs and a count of the number of processes.  Each Process inside the process table has a list of stack locations which point to the top of the stack for each thread inside the current process.  The process also maintains a thread count which is used by the Exit syscall to that the program knows how to exit.
-
-The three big syscalls are Fork, Exit, and Exec.  We implemented Fork by passing a function void pointer and a user-specified integer into the syscall. The void pointer to a function is going to be forked on the kernel level, and the user-specified integer is used so the user can assign unique identifiers to threads. Fork syscall then closely follows the student documentation. The Exec again closely follows the implementation in the student documentation. There’s a process table declared as a kernel variable, and every new process is added to this table as a processEntry. Every processEntry also has a stack location array which keeps track of the stack location start for each thread’s stack. This can be used later to delete threads, and delete entire processes. Exit has three cases, and is called when any thread finishes. These test cases are whether a thread is the last thread in a process, whether a thread is the last process, but it is not the last process, and finally if a thread is the last thread in the last process. For the first case, only the thread and the thread’s stack is deleted, in the second case, the thread’s entire address space is deleted along with the process, and in the last case, the entire program is halted.
-
-In order to complete this project we also needed to update the passportoffice.cc.  To do this, we converted our threadtest.cc file from project 1 into C code in order to show that we can access the syscalls without an object oriented paradigm as a normal OS would.  We then had to convert all of our previous C++ code into C by converting objects to structs and using arrays instead of vectors etc.  We then had to convert all of our calls to Locks, Conditions, Threads, Fork, etc. into our custom syscalls that work with C.  We then must test the passportoffice.c so that it performs the same way that our passport office performed in project 1.
-
-After we get the passport office working in one instance, we will be running passportoffice.cc in another file using Exec() in order to obtain the desired multiprogramming, multithreaded nachos operating system.  We must verify that we are running two programs simultaneously by analyzing the output, and then we are done!
-
-Ultimately, this project forces us to delve into and understand User and Kernel level code in Nachos.  We have to maintain the page table, process table, virtual/phys memory.  We have to make syscalls so that the user can run 2 programs and we need to give support for concurrency programming.
-
-Update: The custom syscalls that we made in addition to the syscalls that are required are: Rand(), PrintString(), PrintNum(), PrintNl(), and GetThreadArgs()
+The final integration will bring the networking and memory management together in order to run the networking using the tlb and ipt underbelly.
 
 II. Assumptions:
-- Reasonable assumptions you take for your scheme.
-we assume that we have infinite physical memory
-we assume that the user is only going to run two programs at the same time.
-we assume memory locations are in blocks and we would insert/ delete in the process table in blocks of 8 instead of finding every page separately
-we assume user-level errors are not the kernel’s responsibility - the kernel has to return and resume normal operation, i.e. be bulletproof, without checking errors for the user; of course, we would have to check for invalid memory access and anything that would result in an error in the operating systems
-we assume Exit(0) is always called at the end of a user program
-we assume there is a maximum possible number of locks and conditions and threads
+	//- Reasonable assumptions you take for your scheme.
+The infinite memory assumption is taken away in this assignment
+When evicting a page from memory, we have to keep track of which process the page belongs to, and update the pagetable accordingly.
+User programs should be using the syscalls at their own responsibility, our job is to make sure whatever they do, the functions will catch the bad conditions and return errors instead of crashing.
+Postoffce works just fine to deliver and receive messages
+There is a fixed maximum number of locks, conditions and monitor variables
+The locks, conditions and monitors are “deleted” if the isDeleted flag is true, instead of having the whole object deleted, for convenience purpose
+Locks and conditions and monitors are destroyed when they are not in use, i.e. if the user try to destroy them while in use, they will be destroyed once release or signal etc. are called.
+All the locks and conditions and monitors are no longer used and created on the local process addressspace, and that part of the project2 is no longer available in project3
+If the server is idle for a long period of time, the postoffce times out and is no longer able to function properly.  The assignment is built on the assumption that there are continuous message flows or short duration.
 
 III. Design:
-- This section is to cover your logic and ideas as to how  you are going to solve the problem presented.  This should include a description of classes, algorithms, etc. This is not code. You must document ALL parts of a project.
-We created a UserLock struct inside System.h/.cc in order to keep track of the locks that the user creates.
-We created a UserCond struct inside System.h/.cc in order to keep track of the condition variables that the user creates.
-We implemented all the security and sanity checks in lock and condition syscalls
-We created a ProcessTable class that keeps track of earch Process currently running
-We created a ProcessEntry struct to keep track of all of the AddrSpaces, stackLocations per process, and also threads so that we have the data associated with each processentry
-We implemented new syscalls including Rand(), PrintString(), PrintNum(), PrintNl() (print new line) etc. to facilitate user program actions
-We have arrays of locks and conditions residing in an addressspace
-We have added pagetablelocks
-All of the names passed into the Exec and Fork must be at most length 32 characters.
+- This section is to cover your logic and ideas as to how you are going to solve the problem presented.  This should include a description of classes, algorithms, etc. This is not code. You must document ALL parts of a project.
+exception.cc
+We needed to add an if statement for PageFaultException which reads from the Bad Virtual Addr register. The register content is passed to HandlePageFault(), which contains the needed virtual address
+void HandlePageFault(int virtualAddress) deals with the PageFaultException. It translates the virtual address into a virtual page and looks for that virtual page in the IPT table. If it finds the virtual page in the IPT table, it will pass the index/position of that index to the TLB, to be loaded in. If not, it will call the handleIPTMiss function, passing in the virtual page
+int handleIPTMiss(int virtualPage) deals with not finding the needed virtual page in the IPT table. It will first try to look in available memory and see if there’s a free page to be filled in. If there isn’t, it will call the handleMemoryFull to free up a space in the memory. When available memory is found/returned, it will used to load the appropriate page from the executable or swap file, depending on the DiskLocation of the virtual page and the byte offset, and the pagetable and IPT table will be updated accordingly.
+int handleMemoryFull() handles booting a page out of the limited memory. The memory is only 32 pages for this assignment, which is reflected by the size of the IPT table. Depending on argument input stored in runWithFIFO, it will either choose a random or FIFO page replacement policy for the memory. It will then choose a page, propagate the dirty bit from the TLB into the IPT page to be replaced. If a page is to be replaced, and the dirty bit is set in the IPT, we will store the page in the swapfile, and update the corrensponding page table accordingly. That freed page is now returned to handleIPTMiss.
+exec in switch case has been modified to work with the new addrspace constructor
+fork in switch case has been modified to work with the new NewPageTable function
+helper functions such as sendMessageToClient, getFromServer, putMsgLock, putCondLock are written in order to help code reuse in our project
+all the locks and conditions variables are commented out from addressspace, and placed into servers
+From the client side, the message string are passed in with characters to encode the functions.  syscode1:‘L’, ‘C’, ‘M’ stand for Locks, Conditions, Monitors respectively  syscode2: ‘C’, ‘A’, ‘R’, ‘D’, ‘W’, ‘S’, ‘B’, ‘G’, ‘S’ stand for Create, Acquire, Release, Destroy, Wait, Signal, Broadcast, Get, Set respectively
+We encapsulate the threads on the server with machineId and mailboxNum to ensure the program is the unique enough to be recognized
+We also encode some of the strings to keep the machine id and mailbox numbers, e.g. “3 0 0 1” means to machineid 3, to mailbox 0, from mailbox 0
+All the invalid actions, such as index over max allowed number, index over array size, waiting on an invalid lock, releasing before acquiring, accessing destroyed objects are handled properly with if else catch blocks.  The appropriate error messages are returned
+We obtain the packetheaders and mailheaders and exchange the to and from fields in server before we send them back to the client or place the message on the queue
+Then postOffice->send is used to send the messages
+
+
+
 IV. Implementation:
-+Files modified
-In ../userprog/
-+ addrspace.h
-+ addrspace.cc
-+ syscall.h
-+ exception.cc
-+ progtest.cc
-Every thread gets an entry in the processTable->processEntries to
-indicate the top of the stack location for every thread, therefore the very first process get their AddressSpace added to the process table and the first thread gets their stack location added to the processEntries
-In ../threads/
-+ thread.h
+Files modified
+exception.cc
+progtest.cc
+custom_syscalls.h
+lock_syscalls.cc
+condition_syscalls.cc
+nettest.cc
+addrspace.cc
+addrspace.h
+system.cc
+system.h
+Makefiles
+conditionServerInit.c
+conditionServerTests.c
+condtest.c
+exectests.c
+forktests.c
+locktest.c
+networkTestsuite.c
+twoMatmults.c
+testsend.c
+condInit.c
+condServer_t1.c
+condServer_t2.c
+condServer_t3.c
+condServer_t4.c
+monInit.c
+monServer_t1.c
+monServer_t2.c
+lockInvalidTest.c
+lock_t1.c
+lock_t2.c
 
-+ thread.cc
-+ system.h
-Kernel wide variables added here
-+ system.cc
-In ../test/
-+ start.s
+	+ Data Structures added, and the file they were added to.
+system.cc:: class IptEntry
+network.cc::struct ServerLock
+network.cc::struct ServerCond
+network.cc::struct ServerMon
+nettest.cc::struct Msg
+nettest.cc::struct ServerThread
+system.h OpenFile *swapFile - pointer to the opened swap file
+system.h BitMap* swapfileBitmap - pointer to the bitmap associated with the swapFile
+system.h List* swapQueue - pointer to a list that will take care of the FIFO queue for swapping out pages
+system.h bool runWithFIFO - a global boolean to indicate whether the page replacement policy is random or FIFO
 
-+ Files added
-In ../userprog/
-+ custom_syscalls.cc
-+ condition_syscalls.cc
-+ lock_syscalls.cc
-+ passportoffice.c
-+ locktest.c
-+ condtest.c
-+ passportRunner.c
-+ exectests.c
-+ forktests.c
+	+ Data Structures modified, and the file they were added to.
+addrspace.h has an OpenFile* executable variable
+TranslationEntry was extended to ExtendedTranslationEntry, which holds int bytOffset and DiskLocation diskLocation in addrspace.h
+DiskLocation is an enum, containing SWAP, EXECUTABLE, NEITHER in addrspace.h
+system.h has IptEntry data structure, which extends TranslationEntry, adding int spaceOwner
 
 
-+ Data Structures added, and the file they were added to.
-+ In system.h
-extern Thread *currentThread;			// the thread holding the CPU
-extern Thread *threadToBeDestroyed;  		// the thread that just finished
-extern Scheduler *scheduler;			// the ready list
-extern Interrupt *interrupt;			// interrupt status
-extern Statistics *stats;			// performance metrics
-extern Timer *timer;				// the hardware alarm clock
-
-extern Lock* kernelLock;
-extern int processCount;
-extern int totalThreadCount;
-extern BitMap* bitmap;
-extern ProcessTable* processTable;
-extern int threadArgs[500];
-
-struct UserLock {
-bool deleteFlag;
-Lock* userLock;
-bool isDeleted;
-};
-
-struct UserCond {
-bool deleteFlag;
-Condition* userCond;
-bool isDeleted;
-};
-
-class ProcessEntry {
-public:
-  AddrSpace* space;
-  SpaceId spaceId;
-  int sleepThreadCount;
-  int awakeThreadCount;
-  int stackLocations[ADDRESS_SPACE_COUNT];
-};
-
-class ProcessTable {
-public:
-  ProcessTable() {
-    runningProcessCount = 0;
-  }
-  ProcessEntry* processEntries[ADDRESS_SPACE_COUNT];
-  int runningProcessCount;
-};
-
-+ In
-+ Data Structures modified, and the file they were added to.
-+
-  -For example,
-    class Lock		-- in file threads.cc/threads.h
-    {
-      //. Modified fields.
-    }
-+ class Thread{
-void setStatus(ThreadStatus st) { status = st; }
-int stackLocations[1000];
-}
-+ class AddrSpace{
-    unsigned int getNumPages() { return numPages; }
-  int processId;
-  int spaceId;
-  int NewPageTable();
-  void DeleteCurrentThread();
-  void PrintPageTable();
-
-  int currentPCReg_space;
-  int nextPCReg_space;
-  int stackReg_space;
-  int threadCount;
-  int lockCount;
-  int condCount;
-  UserLock* userLocks;
-  UserCond* userConds;
-  Lock* locksLock;
-  Lock* condsLock;
-  int StackTopForMain;
-
-}
 + Functions added and in which file.
-+ Functions modified and in which file.
-+ int my_strcmp(char s1[], const char s2[], int len)
-+ basically the ANSI C strcmp function with some slight modifications to support Nachos since there is no heap
-+ int my_strcpy(char s1[], const char s2[], int len)
-+ basically the ANSI C strncpy function with some slight modifications to support Nachos since there is no heap
+- nettest.cc::operator==(const ServerLock& l1, const ServerLock& l2)
+- to compare ServerLocks
+- nettest.cc::bool validateLockIndex(int lockIndex)
+- validate the lock index
+- nettest.cc::bool validateMonitorIndex(int monitorIndex)
+- validate the monitor index
+- nettest.cc::bool validateConditionIndex(int conditionIndex)
+- validate the conditionIndex
+- nettest.cc::void sendMessageToClient(char* data, PacketHeader &pktHdr, MailHeader &mailHdr)
+- send data to the client as specified by the pktHdr and mailHdr
+- nettest.cc::void sendCreateEntityMessage(stringstream &ss, PacketHeader &pktHdr, MailHeader &mailHdr)
+- send a message to the server when an entity is created i.e. CreateLock
+- nettest.cc::void Signal_without_send(PacketHeader &pktHdr, MailHeader &mailHdr, char* data, int lockIndex)
+	- this is a function for backend signaling, essentially the same as the signal syscall, but without the postoffice functions, just removing messages from queues and adding them to the acquire queue
+- nettest.cc::void putMsgLock(PacketHeader &pktHdr, MailHeader &mailHdr, char* data, int lockIndex)
+	- a helper function to add messages to a lock waitqueue
+- nettest.cc::void putMsgCond(int lockIndex, int conditionIndex,  PacketHeader &pktHdr, MailHeader &mailHdr)
+	- a helper function to add messages to a condition waitqueue
+- nettest.cc::void Server()
+- the while loop with a behemoth switch statement that catches all of the cases for various Server calls
+- nettest.cc::void serverReleaseLock(int lockIndex, PacketHeader &pktHdr, MailHeader &mailHdr)
+- the release function for wait, broadcast syscalls - without postoffice functions
+- lock_syscalls.cc::void sendToServer()
+- generic function that allows us to send any message to the server
+- string getFromServer(PacketHeader &pktHdr, MailHeader &mailHdr)
+- gets the encoded string message from the server
+	+ Functions modified and in which file.
 
 V. Testing:  (For each test case, you must show)
-+ How to test
-+ to test locks, run with nachos -x ..test/locktest -d l
-- We added the names of locks for easy debugging, it doesn’t matter what the user passes in or if the lockname is empty
-    TESTING OUTPUTS
--Starting User Program.
-AddrSpace::AddrSpace() sizeOfExecutable: 2192
-AddrSpace::AddrSpace() numPages: 26
+	+ How to test
+- How to run the test cases, the commands, the arguments and so on.
+	+ Test Output
+- Describe the testing output. You don't have to dump all the output info. Just make sure your description can exactly reflect your output. The grader of your submission will be wanting to compare the output they get with what you say the output is.
+
+Tests for part 1 and 2
+The command line argument -P RAND or FIFO can be appended to any of the commands to test the respective page replacement policy, the default replacement policy is FIFO
+
++ Command: nachos -x ../test/matmult
++ Expected output:
+Starting User Program.
 Assigned space.
 Accessing process table.
 Saving processEntry.
-  Lock::Lock number: 0 || name:  created by main
-  Lock::Lock number: 1 || name: Lock1 created by main
-  Lock::Lock number: 2 || name: Lock2 created by main
-  Lock::Lock number: 3 || name: deadLock1 created by main
-  Lock::Lock number: 4 || name: deadLock2 created by main
-  Lock::Lock number: 5 || name: lockToBeDestroyed created by main
+-----------Exit Output: 7220
+Machine halting!
++ This tests runs the matmult test in the test directory to prove our memory management unit works. Expected output matches the exit statement.
+
++ Command: nachos -x ../test/sort
+	+ Expected output:
+Starting User Program.
+Assigned space.
+Accessing process table.
+Saving processEntry.
+-----------Exit Output: 1023
+Machine halting!
++ This tests runs the sort test in the test directory to prove our memory management unit works again, this test is more memory intensive and thoroughly tests the swapfile. Expected output matches the exit statement.
+
++ Command: nachos -x ../test/forkTwoMatmults
+	+ Expected output:
+Starting User Program.
+Assigned space.
+Accessing process table.
+Saving processEntry.
+-----------Exit Output: 0
+-----------Exit Output: 7220
+-----------Exit Output: 7220
+Machine halting!
++ This tests runs the forkTwoMatmults test in the test directory, which forks two matmults, which will exit with the expected output. Expected outputs matches the exit statements the forks return. Forks prove that we can ran multiple threads on the same address space.
+
++ Command: nachos -x ../test/forkTwoSorts
+	+ Expected output:
+Starting User Program.
+Assigned space.
+Accessing process table.
+Saving processEntry.
+-----------Exit Output: 0
+-----------Exit Output: 1023
+-----------Exit Output: 1023
+Machine halting!
++ This tests runs the forkTwoSorts test in the test directory, which forks two sorts, which will exit with the expected output. Expected outputs matches the exit statements the forks return. Proves that multiple forks can live in the same address space.
+
++ Command: nachos -x ../test/twoMatmults
+	+ Expected output:
+Starting User Program.
+Assigned space.
+Accessing process table.
+Saving processEntry.
+-----------Exit Output: 0
+Not last process and last thread, deleting process.
+-----------Exit Output: 7220
+Not last process and last thread, deleting process.
+-----------Exit Output: 7220
+Machine halting!
++ This tests runs the twoMatults test in the test directory, which Execs two matmult instances, which will exit with the expected output. Expected outputs matches the exit statements the forks return. This tests our address space collusions.
+
++ Command: nachos -x ../test/twoSorts
+	+ Expected output:
+Starting User Program.
+Assigned space.
+Accessing process table.
+Saving processEntry.
+-----------Exit Output: 0
+Not last process and last thread, deleting process.
+-----------Exit Output: 1023
+Not last process and last thread, deleting process.
+-----------Exit Output: 1023
+Machine halting!
++ This tests runs the twoSorts test in the test directory, which Execs two sorts instances, which will exit with the expected output. Expected outputs matches the exit statements the forks return. This tests serves the same purpose as the previous test to prove address space for different processes work as they should.
+
+Tests for part 3
+******** To run these tests, have 4-6 aludra windows open, and run the tests with the -ct flag, e.g. nachos -x ../test/acquireTest -ct 1   The -ct flag gives the client a machineId, while the server is run by nachos -m 0  *********
+LOCKS Test
++ $ nachos -x ../test/lockInvalidTest -ct 1
++$ nachos -x ../test/acquireTest -ct (2-6)
+(lockInvalidTest output)
++lockInvalidTest is an initialization function with a set of basic testing functionalities, including sanity check tests for invalid indexes, permission to release, create and destroy locks etc.  Moreover, the test instantiates lock variables on the server, so that other tests can use the locks for ‘multithreaded’ functions.
+In lockInvalidTest, we see that the userprogram creates a lock and acquires it twice, yielding two messages saying they got the lock and lock is already acquired.  Then we create more locks, with names such as lockToBeDestroyed. We also try to acquire, release, destroy a number out of bounds, theLockThatDoesntExist, and error messages are shown.
+Afterwards, we will have to prepare to run acquireTest in 5 aludra terminals within a short time.  There is a Yield forloop which the userprogram tries to acquire a lock, and stops the test for a few seconds, so that all 5 userprograms can be placed on the lock waitqueue at the same time, and then be released one by one after the yield forloop is finished.  We see that all the functions work properly in locks.
+Client::CreateLock:: 0
+Acquire::receivedString: You got the lock!
+Acquire::receivedString: Lock is yours. Done nothing.
+Release::receivedString: You released the lock!
+Client::CreateLock:: 1
+Client::CreateLock:: 2
+Client::CreateLock:: 3
+Client::CreateLock:: 4
+Client::CreateLock:: 5
+Client::CreateLock:: 6
 Testing invalid actions for locks
 Acquiring theLockThatDoesntExist, should give error
-  Lock::Lock number 11 invalid, thread main can't acquire-----------------------
+Acquire::receivedString: Invalid lock index!
 Releasing theLockThatDoesntExist, should give error
-Lock number 11 invalid, thread main can't release-----------------------
+Release::receivedString: Invalid lock index!
+Releasing lock1 before acquire, should give error
+Release::receivedString: No permission to release!
 Destroying theLockThatDoesntExist, should give error
-Lock number 11 invalid, thread main can't destroy-----------------------
+DestroyLock::receivedString: Invalid lock index!
 Destroying lockToBeDestroyed, should be successful
-Lock number 5 and name lockToBeDestroyed deleted-----------------------
-Fork Syscall, total threadCount: 1
-currentThread->space->threadCount: 2
-Creating new pagetable for currentThread: main
-Start stack location for Kernel_thread: 26
-Before KernelThread
-After KernelThread
-Fork Syscall, total threadCount: 2
-currentThread->space->threadCount: 3
-Creating new pagetable for currentThread: main
-Start stack location for Kernel_thread: 34
-Before KernelThread
-After KernelThread
-Finshing lockfiles.c
------------------------ EXIT SYSCALL ------------------------------
-Current thread: main, currentThread ProcessID: 1
-Number of threads for this process: 3 running processes: 0
-isLastProcessVar:1, isLastExecutingThreadVar: 0
-Not last thread in a process, deleting thread.
-In DeleteCurrentThread, stackLocation: 18
--------- launching KernelThread --------
-++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 1
-stackRegForNewStack: 4336 // should be 1024 bytes apart, stackRegForNewStak: 4336
-t1 releasing lock1 before acquiring
-lock not in use, nothing is done-----------------------
-t1 acquiring lock1, should be successful
-  Lock::Lock number: 1 || name:  Lock1 acquired by KernelThread
-t1 output should be 50 to show that there is no race condition in for loop 1-50
-50
-t1 releasing lock1
-  Lock::Lock number: 1 || and name: Lock1 released by KernelThread
-t1 acquiring lock2     Lock::Lock number: 2 || name:  Lock2 acquired by KernelThread
------------------------ EXIT SYSCALL ------------------------------
-Current thread: KernelThread, currentThread ProcessID: 1
-Number of threads for this process: 2 running processes: 0
-isLastProcessVar:1, isLastExecutingThreadVar: 0
-Not last thread in a process, deleting thread.
-In DeleteCurrentThread, stackLocation: 26
--------- launching KernelThread --------
-++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 2
-stackRegForNewStack: 5360 // should be 1024 bytes apart, stackRegForNewStak: 5360
-t2 acquiring lock1
-  Lock::Lock number: 1 || name:  Lock1 acquired by KernelThread
-t1 output should be 100 to show that there is no race condition in for loop
-100
-t2 releasing lock1
------------------------ EXIT SYSCALL ------------------------------
-Current thread: KernelThread, currentThread ProcessID: 1
-Number of threads for this process: 1 running processes: 0
-isLastProcessVar:1, isLastExecutingThreadVar: 1
-Last process and last thread, stopping program
+DestroyLock::receivedString: You destroyed the lock!
+Finshing invalid test
+
+
+Acquire::receivedString: You got the lock!
+Release::receivedString: Released. Another thread took it.
+Finshing acquireTest
+-----------Exit Output: 0
 Machine halting!
 
-Description:
-All the locks are first created by the main thread
-Then kernel system calls and addressspace allocation happens
-Thread 1 and 2 are forked and the main thread is finished and exits first
-Thread 1 runs with normal acquiring, releasing and destroying calls, there is a forloop that adds 1 every loop for 50 times
-Thread 2 runs and acquires the same lock from thread 1, i.e. it has to wait until thread 1 finishes
-The sum for thread 1 and 2 should be 60 at some point, but 50 or 10 can be printed first as it is random which thread runs first
-All threads exits
+CONDITION Test
++ $ nachos -x ../test/condInit -ct 1
++$ nachos -x ../test/signalTest -ct (2-5)
++$ nachos -x ../test/condServer_t3 -ct (6)
 
-+ to test condition variables, run with nachos -x ..test/condtest
-Saving processEntry.
-++++++++ Starting the condition variable testsuite ++++++++
-Creating Condition and Lock with bad string lengths
-  CreateCondition::main size must be: (size < 0 || size > 32) ? -1
-main size must be between 0 and 32!-----------------------
-  CreateCondition::Condition number: 0 || name: Condition2 is created by main
-  CreateLock::Lock number: 0 || name: Lock2 created by main
-Success!  Both cond1 and lock1 equal -1
-Creating valid Condition and Lock
-  CreateCondition::Condition number: 1 || name: Condition1 is created by main
-  CreateLock::Lock number: 1 || name: Lock1 created by main
-Wait with bad condition
-  Wait::invalid cond
-Wait with bad lock
-  Wait::invalid lock
-Signalling with bad condition
-  Signal::invalid cond
-Signalling with bad lock
-  Signal::invalid lock
-Broadcast with bad condition
-  Broadcast::invalid cond
-Broadcast with bad lock
-  Broadcast::invalid lock
-Destroying bad condition
-  DestroyCondition::destroying invalid cond
-Destroying valid condition
-++++++++++++ starting actual testing conditions ++++++++++++    CreateCondition::Condition number: 2 || name: Condition3 is created by main
->>>>>>>>>>>>>main thread trying to acquire lock2
-  Acquire::Lock number: 0 || name:  Lock2 acquired by main
->>>>>>>>>>>>>main thread acquired lock2
->>>>>>>>>>>>>Forked thread 1
-Fork Syscall, total threadCount: 1
-currentThread->space->threadCount: 2
-Creating new pagetable for currentThread: main
-Start stack location for Kernel_thread: 34
-Before KernelThread
-After KernelThread
->>>>>>>>>>>>>Forked thread 2
-Fork Syscall, total threadCount: 2
-currentThread->space->threadCount: 3
-Creating new pagetable for currentThread: main
-Start stack location for Kernel_thread: 42
-Before KernelThread
-After KernelThread
->>>>>>>>>>>>>main thread waiting on lock2
-  Wait::Condition  number 2, name Condition3 is waited on by main
--------- launching KernelThread --------
-++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 1
-stackRegForNewStack: 5360 // should be 1024 bytes apart, stackRegForNewStak: 5360
->>>>>>>>>>>>>t1 thread started
->>>>>>>>>>>>>t1 trying to acquire lock2
-  Acquire::Lock number: 0 || name:  Lock2 acquired by KernelThread
->>>>>>>>>>>>>t1 acquired lock2
->>>>>>>>>>>>>t1 Waiting for lock2
-  Wait::Condition  number 0, name Condition2 is waited on by KernelThread
--------- launching KernelThread --------
-++++++++++++++++++++ currentThread->space->processId: 1, currentThread->id: 2
-stackRegForNewStack: 6384 // should be 1024 bytes apart, stackRegForNewStak: 6384
->>>>>>>>>>>>>t2 thread started
->>>>>>>>>>>>>t2 trying to acquire lock2
-  Acquire::Lock number: 0 || name:  Lock2 acquired by KernelThread
->>>>>>>>>>>>>t2 acquired lock1
->>>>>>>>>>>>>t2 trying to signal lock2 (t1)
-  Condition  number 0, name Condition2 is signalled by KernelThread
->>>>>>>>>>>>>t2 signaled lock2 (t1)
->>>>>>>>>>>>>t2 releasing lock2
-  Release::Lock number: 0 || and name: Lock2 released by KernelThread
------------------------ EXIT SYSCALL ------------------------------
-Current thread: KernelThread, currentThread ProcessID: 1
-Number of threads for this process: 3 running processes: 0
-isLastProcessVar:1, isLastExecutingThreadVar: 0
-Not last thread in a process, deleting thread.
-In DeleteCurrentThread, stackLocation: 42
->>>>>>>>>>>>>t1 Signaled by lock2
-  Condition  number 2, name Condition3 is signalled by KernelThread
-  Release::Lock number: 0 || and name: Lock2 released by KernelThread
------------------------ EXIT SYSCALL ------------------------------
-Current thread: KernelThread, currentThread ProcessID: 1
-Number of threads for this process: 2 running processes: 0
-isLastProcessVar:1, isLastExecutingThreadVar: 0
-Not last thread in a process, deleting thread.
-In DeleteCurrentThread, stackLocation: 34
->>>>>>>>>>>>>main thread signaled by t1
-  Release::Lock number: 0 || and name: Lock2 released by main
->>>>>>>>>>>>>main thread released lock2
--------- Finshing Condition test suite --------
------------------------ EXIT SYSCALL ------------------------------
-Current thread: main, currentThread ProcessID: 1
-Number of threads for this process: 1 running processes: 0
-isLastProcessVar:1, isLastExecutingThreadVar: 1
-Last process and last thread, stopping program
-Machine halting!
+Again, condInit is an initializing function which creates the condition and lock variables that we need for future tests and also test their basic error checking functionalities such as create, destroy, out of bounds check, doing something without acquiring a lock etc.  We first create locks and conditions, then try to destroy conditions normally and with out of bounds index.  Then we proceed to testing signal, wait and broadcast with invalid actions.
 
-+ The above output shows the output of the condition variable test suite.  The scoped calls “Wait::Condition number 0, name Condition2 is waiting” shows the print from the current function and which condition and which name it is.  The “>>>>>>>>>>>>>” statements show what is actually happening in the program with the threads acquiring locks and signalling each other.  We can assert that this is correct because we get the expected behavior with 2 locks and a CV when running the program.  The way the testsuite is set up is that we test for edge cases first––bad values, long char arrays, etc––then we test for creating and destroying valid conditions.  Then we test that the conditions are used correctly with the correct behavior.
+Creating test locks and CVs, should be successful
+Client::CreateLock:: 0
+Client::CreateLock:: 1
+Client::CreateCondition::receivedString: 0
+Client::CreateCondition::receivedString: 1
+Client::CreateLock:: 2
+Client::CreateLock:: 3
+Client::CreateCondition::receivedString: 2
+Client::CreateCondition::receivedString: 3
+Client::CreateCondition::receivedString: 4
+Destroying CV, should see both successful and unsuccesful attempts.
+Destroying condToBeDestroyed
+DestroyLock::receivedString: Condition is destroyed.
+Destroying theCondThatDoesntExist
+DestroyLock::receivedString: Invalid cond index!
+Waiting theCondThatDoesntExist
+Acquire::receivedString: You got the lock!
+Client::Wait::receivedString: Invalid cond index!
+Signaling theCondThatDoesntExist
+Acquire::receivedString: You got the lock!
+Client::Signal::receivedString: Invalid cond index!
+Release::receivedString: You released the lock!
+Broadcasting theCondThatDoesntExist
+Client::Broadcast::receivedString: Invalid cond index!
+Finshing condInit
 
-- Describe the testing output. You don't have to dump all the output info. Just make sure your description can exactly reflect your output. The grader of your submission will be wanting to compare the output they get with what you say the output is.
+For Signal test, we try to wait multiple conditions at the same time (depending on how many you would like to test, just run nachos -x ../test/signalTest -ct machineId) and then run nachos -x ../test/condServer_t3 -ct machineId
+The condServer_t3 test is actually a broadcast function that signals all of the waiting threads.  With the same idea in mind, we can run the following to test our signal functions to make sure all create, wait, signal, broadcast, destroy work in multithreaded scenarios
+
++ $ nachos -x ../test/condInit -ct 1
++$ nachos -x ../test/signalTest -ct (2-5)
++$ nachos -x ../test/signalTestEnd -ct (6)
+
+Acquire::receivedString: You got the lock!
+Client::Wait::receivedString: You got the lock!
+Release::receivedString: You released the lock!
+Finshing signalTest
 
 
-To test Exec syscall, run: nachos -x ../test/exectests
-The tests should show that it executes the first two files, as they exist in the test directory, while it will output that it cannot read the files for the last three cases, as the input are not file names anywhere.
 
-To test Fork syscall, run: nachos -x ../test/condtests
-    The test should show that fork works as it is able to call helloworld, and then the the two forks with addOneAndPrintNumber prove that forks work in the same addressspace and can access the same variables in the same process
+
+MONITOR Test
++ $ nachos -x ../test/monInit -ct 1
++$ nachos -x ../test/monServer_t1 -ct 2
++$ nachos -x ../test/monServer_t2 -ct 2
++$ nachos -x ../test/monServer_t3 -ct 2
+
+Finally, we put together a small application that allows different userprograms to set and extract monitor variables, i.e. sharing data across the server.  We also use the locks and conditions functions which are already fully tested above in this little program.
+
+As usual, we initialize the variables in monInit, and do basic functions such as creating, destroying, setting and getting.  We also print out the values for checking.
+(monInit)
+Creating monitors and locks
+Client::CreateLock:: 0
+Client::CreateLock:: 1
+Client::CreateCondition::receivedString: 0
+Client::CreateCondition::receivedString: 1
+Setting Monitors 1 from 0-4, should be sucessful.
+Client::SetMonitor::receivedString: Set monitor successfully! 1 0 0
+Client::SetMonitor::receivedString: Set monitor successfully! 1 1 1
+Client::SetMonitor::receivedString: Set monitor successfully! 1 2 2
+Client::SetMonitor::receivedString: Set monitor successfully! 1 3 3
+Client::SetMonitor::receivedString: Set monitor successfully! 1 4 4
+Setting Monitors 2 from 5-9, with acquire and release, should be successful.
+Acquire::receivedString: You got the lock!
+Client::SetMonitor::receivedString: Set monitor successfully! 0 5 5
+Client::SetMonitor::receivedString: Set monitor successfully! 0 6 6
+Client::SetMonitor::receivedString: Set monitor successfully! 0 7 7
+Client::SetMonitor::receivedString: Set monitor successfully! 0 8 8
+Client::SetMonitor::receivedString: Set monitor successfully! 0 9 9
+Release::receivedString: You released the lock!
+Acquire::receivedString: You got the lock!
+Client::GetMonitor::receivedString:
+Printing monitor value. Should have 3.
+3
+Client::GetMonitor::receivedString:
+Printing monitor value. Should have 5.
+5
+Release::receivedString: You released the lock!
+Client::DestroyMonitor::receivedString: Deleted monitor successfully!
+Client::DestroyMonitor::receivedString: Invalid monitor index!
+
+Then we have a userprogram acquiring a lock and setting the monitor to number 9.  This number will act as the data shared on the server and another trusted userprogram will acquire the same lock and then obtain the piece of data.  There are also DestroyMonitor calls here.  Locks and condition wait are used here so that we can prove that all the syscalls work together to produce a functional userprogram with remote procedure calls
+
+(monServer_t1)
+
+Setting monitors
+Acquire::receivedString: You got the lock!
+Client::SetMonitor::receivedString: Set monitor successfully! 0 0 9
+Release::receivedString: Released. Another thread took it.
+Waiting on lock2
+Acquire::receivedString: You got the lock!
+Client::Wait::receivedString: You got the lock!
+Release::receivedString: You released the lock!
+Destroying Monitors 1 and 2
+Client::DestroyMonitor::receivedString: Deleted monitor successfully!
+Client::DestroyMonitor::receivedString: Deleted monitor successfully!
+
+Another program getting the value 9, successfully sharing data.
+
+(monServer_t2)
+Acquiring and printing monitor value. Should have 9.
+Acquire::receivedString: You got the lock!
+9
+Release::receivedString: Released. Another thread took it.
+
+Just a third program trying to acquire and signal other threads with monitors.
+
+(monServer_t3)
+Acquiring and Signaling.
+Acquire::receivedString: You got the lock!
+Client::Signal::receivedString: Signalled
+Release::receivedString: Released. Another thread took it.
+
 
 VI. Discussion:
-+ Experiment expectation.  (What is supposed to happen.)  For the final Experiment, we should be able to use the passportRunner.c program in order to run two passport offices simultaneously by Exec-ing the passportoffice.c program.  If we run the passport office with the same parameters for both instances, we expect that there will be twice as many clerks service customers, twice as many customers finish, and twice as many Managers manage.  However, the threads instantiated by each respective instance of passport office will keep to themselves even though they will be executing at the same time.  Thus we will have achieved two independent passport offices running at the same time.
-+ Our expectation was correct.  After writing all of the output into a file, we were able to locate twice as many instances as one passport office––twice as many locks, CVs, customers, managers, clerks, etc.  However, each of these instance were independent to their own passport office.  We were able to verify this because even though there were 20 customer threads, two customers were named “customer_0”, two were named “customer_1”, two were named “customer_3” and so on and so forth.  This means that each passport office made their own instances of customers without any knowledge of each other––perfect multiprogramming!
-+ Explanation
-  - Essentially, we can assert that we are correct in our implementations of Fork, Exec, and Exit to run the passport office because we got double the output, but after sorting out the duplicate print statements, each office had the same printouts (minus the random money calculations and manager money counts of course).  The statements from each of the offices were also interwoven between eachother, proving that they were executed at the “same time”.  Thus we can assume that both of our passport offices ran simultaneously.  Since both offices exited correctly and contained all of the correct output, we can fully conclude that our implementation is correct.
+	+ Experiment expectation.  (What is supposed to happen.)
+- For tests in parts 1 and 2, we expected the tests to run normally as they would have for project 2; the user program wouldn’t see any difference to how their syscalls execute, but on the kernel level, we have implemented a limited size memory of 32 pages. There’s also a swap file the kernel uses to write dirty pages to. The TLB, or the translation lookaside buffer can only load in 4 pages, and simulates our cache on the processor - a hardware component. Our memory is simulated with the IPT, which keeps track of pages in the IPT.
+	+ Experiment result.  (What actually happened.)
+- Syscalls tested were fork and exec for parts 1 and 2. These were used because both of these deal with stack size increasing and address space allocation. The forks and execs performed like the user expected, just took a little longer than in project 2 because our memory was no longer infinite.
+	+ Explanation
+		- Our result show that our implementation of the TLB table, IPT and swapfile worked well, because the userprogram doesn’t see a difference in syscall behaviour, but there’s a significant delay in behaviour because there are continuous TLB misses and IPT misses, for which NACHOS has to simulate loading the correct pages into the TLB from memory, and into the IPT and TLB from disk.
+
+
+For tests in part 3, we expected the tests to run normally as project 2, aside from the new monitor syscalls.  It would be different as the syscalls are requested to a central server which routes the requests and send the messages.
+
+We intensively tested all the basic functionalities of each locks and conditions syscalls, and made sure they work by first using unit tests.  Then, at the end of the tests, we have monitor tests which are both 1. multithreaded and 2. involves shared data and all the syscalls.  Which demonstrates the ability to make functional RPCs among userprogram clients and servers
 
 VIII. Miscellaneous:
-- Happy grading (:
+- Whatever else you want the grader know about your development.  You can create your own subsections headings here.
+
+ Happy grading and thanks! (:

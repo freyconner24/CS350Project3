@@ -31,7 +31,7 @@ CPP = $(GCCDIR)cpp
 INCDIR =-I../userprog -I../threads
 CFLAGS = -G 0 -c $(INCDIR)
 
-all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults twoSorts forkTwoSorts forkTwoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2
+all: halt matmult sort testfiles exectests forktests passportoffice locktest condtest twoMatmults testsend networkTestsuite lockInvalidTest lock_t1 lock_t2 condServerInitTest condServer_t2 condServer_t1 condServer_t3 condServer_t4 condInit monInit monServer_t1 monServer_t2 monServer_t3 unitTestCond2 unitTestCond1 lock_t4 lock_t3 acquireTest signalTest twoSorts forkTwoSorts forkTwoMatmults signalTestEnd
 
 start.o: start.s ../userprog/syscall.h
 	$(CPP) $(CPPFLAGS) start.s > strt.s
@@ -141,12 +141,115 @@ lock_t2.o: lock_t2.c
 lock_t2: lock_t2.o start.o
 				$(LD) $(LDFLAGS) start.o lock_t2.o -o lock_t2.coff
 				../bin/coff2noff lock_t2.coff lock_t2
+lock_t3.o: lock_t3.c
+				$(CC) $(CFLAGS) -c lock_t3.c
+lock_t3: lock_t3.o start.o
+				$(LD) $(LDFLAGS) start.o lock_t3.o -o lock_t3.coff
+				../bin/coff2noff lock_t3.coff lock_t3
+
+lock_t4.o: lock_t4.c
+				$(CC) $(CFLAGS) -c lock_t4.c
+lock_t4: lock_t4.o start.o
+				$(LD) $(LDFLAGS) start.o lock_t4.o -o lock_t4.coff
+				../bin/coff2noff lock_t4.coff lock_t4
 
 lockInvalidTest.o: lockInvalidTest.c
 				$(CC) $(CFLAGS) -c lockInvalidTest.c
 lockInvalidTest: lockInvalidTest.o start.o
 				$(LD) $(LDFLAGS) start.o lockInvalidTest.o -o lockInvalidTest.coff
 				../bin/coff2noff lockInvalidTest.coff lockInvalidTest
+
+condServerInitTest.o: condServerInitTest.c
+				$(CC) $(CFLAGS) -c condServerInitTest.c
+condServerInitTest: condServerInitTest.o start.o
+				$(LD) $(LDFLAGS) start.o condServerInitTest.o -o condServerInitTest.coff
+				../bin/coff2noff condServerInitTest.coff condServerInitTest
+
+condServer_t2.o: condServer_t2.c
+				$(CC) $(CFLAGS) -c condServer_t2.c
+condServer_t2: condServer_t2.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t2.o -o condServer_t2.coff
+				../bin/coff2noff condServer_t2.coff condServer_t2
+
+condServer_t1.o: condServer_t1.c
+				$(CC) $(CFLAGS) -c condServer_t1.c
+condServer_t1: condServer_t1.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t1.o -o condServer_t1.coff
+				../bin/coff2noff condServer_t1.coff condServer_t1
+
+condInit.o: condInit.c
+				$(CC) $(CFLAGS) -c condInit.c
+condInit: condInit.o start.o
+				$(LD) $(LDFLAGS) start.o condInit.o -o condInit.coff
+				../bin/coff2noff condInit.coff condInit
+
+condServer_t3.o: condServer_t3.c
+				$(CC) $(CFLAGS) -c condServer_t3.c
+condServer_t3: condServer_t3.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t3.o -o condServer_t3.coff
+				../bin/coff2noff condServer_t3.coff condServer_t3
+
+condServer_t4.o: condServer_t4.c
+				$(CC) $(CFLAGS) -c condServer_t4.c
+condServer_t4: condServer_t4.o start.o
+				$(LD) $(LDFLAGS) start.o condServer_t4.o -o condServer_t4.coff
+				../bin/coff2noff condServer_t4.coff condServer_t4
+
+monServer_t1.o: monServer_t1.c
+			$(CC) $(CFLAGS) -c monServer_t1.c
+monServer_t1: monServer_t1.o start.o
+			$(LD) $(LDFLAGS) start.o monServer_t1.o -o monServer_t1.coff
+			../bin/coff2noff monServer_t1.coff monServer_t1
+
+monServer_t2.o: monServer_t2.c
+				$(CC) $(CFLAGS) -c monServer_t2.c
+monServer_t2: monServer_t2.o start.o
+				$(LD) $(LDFLAGS) start.o monServer_t2.o -o monServer_t2.coff
+				../bin/coff2noff monServer_t2.coff monServer_t2
+
+monServer_t3.o: monServer_t3.c
+				$(CC) $(CFLAGS) -c monServer_t3.c
+monServer_t3: monServer_t3.o start.o
+				$(LD) $(LDFLAGS) start.o monServer_t3.o -o monServer_t3.coff
+				../bin/coff2noff monServer_t3.coff monServer_t3
+
+monInit.o: monInit.c
+				$(CC) $(CFLAGS) -c monInit.c
+monInit: monInit.o start.o
+				$(LD) $(LDFLAGS) start.o monInit.o -o monInit.coff
+				../bin/coff2noff monInit.coff monInit
+
+unitTestCond1.o: unitTestCond1.c
+				$(CC) $(CFLAGS) -c unitTestCond1.c
+unitTestCond1: unitTestCond1.o start.o
+				$(LD) $(LDFLAGS) start.o unitTestCond1.o -o unitTestCond1.coff
+				../bin/coff2noff unitTestCond1.coff unitTestCond1
+
+unitTestCond2.o: unitTestCond2.c
+				$(CC) $(CFLAGS) -c unitTestCond2.c
+unitTestCond2: unitTestCond2.o start.o
+				$(LD) $(LDFLAGS) start.o unitTestCond2.o -o unitTestCond2.coff
+				../bin/coff2noff unitTestCond2.coff unitTestCond2
+
+acquireTest.o: acquireTest.c
+				$(CC) $(CFLAGS) -c acquireTest.c
+acquireTest: acquireTest.o start.o
+				$(LD) $(LDFLAGS) start.o acquireTest.o -o acquireTest.coff
+				../bin/coff2noff acquireTest.coff acquireTest
+
+signalTestEnd.o: signalTestEnd.c
+				$(CC) $(CFLAGS) -c signalTestEnd.c
+signalTestEnd: signalTestEnd.o start.o
+				$(LD) $(LDFLAGS) start.o signalTestEnd.o -o signalTestEnd.coff
+				../bin/coff2noff signalTestEnd.coff signalTestEnd
+
+signalTest.o: signalTest.c
+				$(CC) $(CFLAGS) -c signalTest.c
+signalTest: signalTest.o start.o
+				$(LD) $(LDFLAGS) start.o signalTest.o -o signalTest.coff
+				../bin/coff2noff signalTest.coff signalTest
+
+
 
 clean:
 	rm -f *.o *.coff

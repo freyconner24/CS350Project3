@@ -1,15 +1,17 @@
 # NOTE: this is a GNU Makefile.  You must use "gmake" rather than "make".
 #
 # Makefile for the network assignment
-#    Defines set up assuming this assignment is done last 
-#    If not, use the "bare bones"  defines below. 
+#    Defines set up assuming this assignment is done last
+#    If not, use the "bare bones"  defines below.
 #
 # Copyright (c) 1992 The Regents of the University of California.
-# All rights reserved.  See copyright.h for copyright notice and limitation 
+# All rights reserved.  See copyright.h for copyright notice and limitation
 # of liability and disclaimer of warranty provisions.
 
+
 DEFINES = -DUSER_PROGRAM -DFILESYS_NEEDED -DFILESYS_STUB -DNETWORK -DVM -DUSE_TLB
-INCPATH = -I../filesys -I../bin -I../userprog -I../threads -I../machine -I../network 
+INCPATH = -I../filesys -I../bin -I../userprog -I../threads -I../machine -I../network
+
 HFILES = $(THREAD_H) $(USERPROG_H) $(VM_H) $(NETWORK_H)
 CFILES = $(THREAD_C) $(USERPROG_C) $(VM_C) $(NETWORK_C)
 C_OFILES = $(THREAD_O) $(USERPROG_O) $(VM_O) $(NETWORK_O)
