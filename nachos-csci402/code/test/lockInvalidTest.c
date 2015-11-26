@@ -16,7 +16,11 @@ int deadLock2;
 int lockToBeDestroyed;
 
 int main() {
-  lock1 = CreateLock("Lock1", 5, 0);
+	PrintString("Creating lock1 for the first time, should get 0\n", 48);
+	lock1 = CreateLock("Lock1", 5, 0);
+	PrintString("Creating lock1 again, should get 0\n", 35);
+	lock1 = CreateLock("Lock1", 5, 0);
+  
   Acquire(lock1);
   Acquire(lock1);
   Release(lock1);

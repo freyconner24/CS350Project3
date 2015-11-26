@@ -217,6 +217,9 @@ LOCKS Test
 +lockInvalidTest is an initialization function with a set of basic testing functionalities, including sanity check tests for invalid indexes, permission to release, create and destroy locks etc.  Moreover, the test instantiates lock variables on the server, so that other tests can use the locks for ‘multithreaded’ functions.
 In lockInvalidTest, we see that the userprogram creates a lock and acquires it twice, yielding two messages saying they got the lock and lock is already acquired.  Then we create more locks, with names such as lockToBeDestroyed. We also try to acquire, release, destroy a number out of bounds, theLockThatDoesntExist, and error messages are shown.
 Afterwards, we will have to prepare to run acquireTest in 5 aludra terminals within a short time.  There is a Yield forloop which the userprogram tries to acquire a lock, and stops the test for a few seconds, so that all 5 userprograms can be placed on the lock waitqueue at the same time, and then be released one by one after the yield forloop is finished.  We see that all the functions work properly in locks.
+Creating lock1 for the first time, should get 0
+Client::CreateLock:: 0
+Creating lock1 again, should get 0
 Client::CreateLock:: 0
 Acquire::receivedString: You got the lock!
 Acquire::receivedString: Lock is yours. Done nothing.
@@ -257,6 +260,9 @@ Again, condInit is an initializing function which creates the condition and lock
 Creating test locks and CVs, should be successful
 Client::CreateLock:: 0
 Client::CreateLock:: 1
+Creating condition1 the first time, should get 0
+Client::CreateCondition::receivedString: 0
+Creating condition1 again, should get 0
 Client::CreateCondition::receivedString: 0
 Client::CreateCondition::receivedString: 1
 Client::CreateLock:: 2
@@ -298,14 +304,21 @@ Finshing signalTest
 MONITOR Test
 + $ nachos -x ../test/monInit -ct 1
 +$ nachos -x ../test/monServer_t1 -ct 2
-+$ nachos -x ../test/monServer_t2 -ct 2
-+$ nachos -x ../test/monServer_t3 -ct 2
++$ nachos -x ../test/monServer_t2 -ct 3
+***** run monServer_t3 after the previous server stalls due to a condition wait *****
++$ nachos -x ../test/monServer_t3 -ct 4
 
 Finally, we put together a small application that allows different userprograms to set and extract monitor variables, i.e. sharing data across the server.  We also use the locks and conditions functions which are already fully tested above in this little program.
 
 As usual, we initialize the variables in monInit, and do basic functions such as creating, destroying, setting and getting.  We also print out the values for checking.
 (monInit)
 Creating monitors and locks
+Creating monitor1 for the first time, should get 0
+Client::CreateMonitor::receivedString 0
+Creating monitor1 again, should get 0
+Client::CreateMonitor::receivedString 0
+Client::CreateMonitor::receivedString 1
+Client::CreateMonitor::receivedString 2
 Client::CreateLock:: 0
 Client::CreateLock:: 1
 Client::CreateCondition::receivedString: 0

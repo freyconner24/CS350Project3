@@ -402,11 +402,26 @@ int CreateLock_server(char* name, int appendNum, PacketHeader &pktHdr, MailHeade
       sendMessageToClient("Too many locks!", pktHdr, mailHdr);
       return -1;
     }
+
+    bool deleteFlag;
+    bool isDeleted;
+    for (int i = 0; i < serverLockCount; ++i){
+      deleteFlag = serverLocks[i].deleteFlag;
+      isDeleted = serverLocks[i].isDeleted;
+      if (strcmp(name, serverLocks[i].name) == 0 && !isDeleted){
+        // cout << serverLocks[i].name << " returning 0?\n";
+        // cout << "name == serverLocks[].name " << strcmp(name, serverLocks[i].name) << endl;
+        return i;
+      }
+    }
+
     // initialize all the values
     serverLocks[serverLockCount].deleteFlag = FALSE;
     serverLocks[serverLockCount].isDeleted = FALSE;
     serverLocks[serverLockCount].lockStatus = serverLocks[serverLockCount].FREE;
-    serverLocks[serverLockCount].name = name;
+    serverLocks[serverLockCount].name = new char [strlen(name) + 1];
+    strncpy(serverLocks[serverLockCount].name, name, strlen(name));
+    serverLocks[serverLockCount].name[strlen(name)] = '\0';
     serverLocks[serverLockCount].lockOwner.machineId = -1;
     serverLocks[serverLockCount].lockOwner.mailboxNum = -1;
 
@@ -548,9 +563,23 @@ int CreateMonitor_server(char* name, int appendNum, PacketHeader &pktHdr, MailHe
     sendMessageToClient("Too many mons!", pktHdr, mailHdr);
     return -1;
   }
+    bool deleteFlag;
+    bool isDeleted;
+    for (int i = 0; i < serverMonCount; ++i){
+      deleteFlag = serverMons[i].deleteFlag;
+      isDeleted = serverMons[i].isDeleted;
+      if (strcmp(name, serverMons[i].name) == 0 && !isDeleted){
+        // cout << serverLocks[i].name << " returning 0?\n";
+        // cout << "name == serverLocks[].name " << strcmp(name, serverLocks[i].name) << endl;
+        return i;
+      }
+    }
+
   serverMons[serverMonCount].deleteFlag = FALSE;
   serverMons[serverMonCount].isDeleted = FALSE;
-  serverMons[serverMonCount].name = name;
+  serverMons[serverMonCount].name = new char [strlen(name) + 1];
+  strncpy(serverMons[serverMonCount].name, name, strlen(name));
+  serverMons[serverMonCount].name[strlen(name)] = '\0';
   serverMons[serverMonCount].values = new int [appendNum];
 
   int currentMonIndex = serverMonCount;
@@ -615,10 +644,25 @@ int CreateCondition_server(char* name, int appendNum, PacketHeader &pktHdr, Mail
       sendMessageToClient("Too many conds!", pktHdr, mailHdr);
       return -1;
     }
+
+    bool deleteFlag;
+    bool isDeleted;
+    for (int i = 0; i < serverCondCount; ++i){
+      deleteFlag = serverConds[i].deleteFlag;
+      isDeleted = serverConds[i].isDeleted;
+      if (strcmp(name, serverConds[i].name) == 0 && !isDeleted){
+        // cout << serverLocks[i].name << " returning 0?\n";
+        // cout << "name == serverLocks[].name " << strcmp(name, serverLocks[i].name) << endl;
+        return i;
+      }
+    }
+
     // initialize
     serverConds[serverCondCount].deleteFlag = FALSE;
     serverConds[serverCondCount].isDeleted = FALSE;
-    serverConds[serverCondCount].name = name;
+    serverConds[serverCondCount].name = new char [strlen(name) + 1];
+    strncpy(serverConds[serverCondCount].name, name, strlen(name));
+    serverConds[serverCondCount].name[strlen(name)] = '\0';
     serverConds[serverCondCount].waitingLockIndex = -1;
     serverConds[serverCondCount].hasWaitingLock == FALSE;
     int currentCondIndex = serverCondCount;

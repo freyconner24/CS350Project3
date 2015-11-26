@@ -21,7 +21,10 @@ int main() {
   Write("Creating test locks and CVs, should be successful\n", 50, ConsoleOutput);
   lock1 = CreateLock("Lock1", 5, 0);
 	lock2 = CreateLock("Lock2", 5, 0);
+  Write("Creating condition1 the first time, should get 0\n", 49, ConsoleOutput);
 	cond1 = CreateCondition("Condition1", 10, 0);
+  Write("Creating condition1 again, should get 0\n", 40, ConsoleOutput);
+  cond1 = CreateCondition("Condition1", 10, 0);
 	cond2 = CreateCondition("Condition2", 10, 0);
   lock3 = CreateLock("Lock3", 5, 0);
   lock4 = CreateLock("Lock4", 5, 0);

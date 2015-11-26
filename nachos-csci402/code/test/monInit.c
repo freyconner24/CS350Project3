@@ -12,6 +12,9 @@ int mon3;
 
 int main(){
 	PrintString("Creating monitors and locks\n", 28);
+	PrintString("Creating monitor1 for the first time, should get 0\n", 51);
+	mon1 = CreateMonitor("Monitor1", 8, 5);
+	PrintString("Creating monitor1 again, should get 0\n", 38);
 	mon1 = CreateMonitor("Monitor1", 8, 5);
 	mon2 = CreateMonitor("Monitor2", 8, 10);
 	mon3 = CreateMonitor("Monitor3", 8, 10);

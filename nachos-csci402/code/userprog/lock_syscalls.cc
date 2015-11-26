@@ -134,6 +134,7 @@ int CreateMonitor_sys(int vaddr, int size, int arraySize) {
 	}; //copy contents of the virtual addr (ReadRegister(4)) to the name
 
     string receivedString = sendAndRecieveMessage("M C ", name, arraySize, -1, -1);
+     cout << "Client::CreateMonitor::receivedString " << receivedString << endl;
     stringstream ss;
     ss << receivedString;
 
